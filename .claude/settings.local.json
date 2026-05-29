@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l \"C:/Afrika_Banque_Project/brvm-analyzer/pages\"/*.py)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist /FI \"PID eq 11228\")",
+      "Bash(tasklist /FI \"PID eq 6240\")",
+      "Bash(powershell:*)",
+      "Bash(sqlite3 /c/Afrika_Banque_Project/brvm-analyzer/brvm_analyzer.db \".schema\")"
+    ]
+  }
+}
