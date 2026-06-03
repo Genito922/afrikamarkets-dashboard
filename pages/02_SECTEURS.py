@@ -6,14 +6,15 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 from data.brvm_scraper import get_actions, get_indices
+from utils.i18n import t, get_lang
 
 st.set_page_config(page_title="Secteurs BRVM", layout="wide")
-LANG = st.sidebar.selectbox("🌐 Langue / Language", ["Français", "English"])
-FR = LANG == "Français"
 
-st.title("🏭 Analyse Sectorielle BRVM" if FR else "🏭 BRVM Sector Analysis")
+lang = get_lang()
 
-df = get_actions()
+st.title(t("sectors_title", lang))
+
+df      = get_actions()
 indices = get_indices()
 
 # ── Performance sectorielle depuis les indices ────────────────
@@ -24,7 +25,7 @@ if indices["sectoriel"]:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("Performance YTD par secteur" if FR else "YTD Sector Performance")
+        st.subheader(t("ytd_performance", lang))
         fig = px.bar(
             df_sec.sort_values("var_ytd"),
             x="var_ytd", y="nom",
@@ -43,7 +44,7 @@ if indices["sectoriel"]:
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
-        st.subheader("Variation journalière" if FR else "Daily Variation")
+        st.subheader(t("daily_variation", lang))
         colors = ["#00CC66" if v >= 0 else "#FF4444" for v in df_sec["variation"]]
         fig2 = go.Figure(go.Bar(
             x=df_sec["variation"],
@@ -65,7 +66,7 @@ st.markdown("---")
 
 # ── Composition par secteur ───────────────────────────────────
 if not df.empty:
-    st.subheader("Composition du marché par secteur" if FR else "Market Composition by Sector")
+    st.subheader(t("market_composition", lang))
 
     df_comp = df.groupby("secteur").agg(
         nb_titres=("symbole", "count"),
@@ -77,7 +78,7 @@ if not df.empty:
     with col3:
         fig3 = px.pie(
             df_comp, values="nb_titres", names="secteur",
-            title="Nombre de titres par secteur" if FR else "Number of stocks by sector",
+            title=t("nb_stocks_by_sector", lang),
             color_discrete_sequence=px.colors.qualitative.Set3,
         )
         fig3.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color="white")
@@ -86,7 +87,7 @@ if not df.empty:
     with col4:
         fig4 = px.pie(
             df_comp, values="volume_total", names="secteur",
-            title="Volume échangé par secteur" if FR else "Trading volume by sector",
+            title=t("volume_by_sector", lang),
             color_discrete_sequence=px.colors.qualitative.Set3,
         )
         fig4.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color="white")
@@ -95,13 +96,13 @@ if not df.empty:
     # Tableau synthèse
     st.dataframe(
         df_comp.sort_values("variation_moy", ascending=False).rename(columns={
-            "secteur": "Secteur" if FR else "Sector",
-            "nb_titres": "Nb titres" if FR else "# Stocks",
-            "volume_total": "Volume total",
-            "variation_moy": "Var moy (%) / Avg Var (%)",
+            "secteur":       t("sector", lang),
+            "nb_titres":     t("nb_stocks", lang),
+            "volume_total":  t("total_volume", lang),
+            "variation_moy": t("avg_variation", lang),
         }).style.format({
-            "Volume total": "{:,.0f}",
-            "Var moy (%) / Avg Var (%)": "{:.2f}%",
+            t("total_volume", lang):  "{:,.0f}",
+            t("avg_variation", lang): "{:.2f}%",
         }),
         use_container_width=True,
     )

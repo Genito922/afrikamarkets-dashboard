@@ -5,12 +5,15 @@ Profil utilisateur + changement et reset de mot de passe
 import streamlit as st
 import re
 from datetime import datetime
+from utils.i18n import t, get_lang
 
 st.set_page_config(
     page_title="Mon Profil — Afrika Markets",
     page_icon="👤",
     layout="wide"
 )
+
+lang = get_lang()
 
 # ── CSS ──────────────────────────────────────────────────────
 st.markdown("""
@@ -46,28 +49,37 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Header ───────────────────────────────────────────────────
-st.markdown("""
+st.markdown(f"""
 <div style='background: linear-gradient(135deg, #006B3F, #C9A84C);
      padding: 20px; border-radius: 12px; margin-bottom: 30px;'>
-    <h1 style='color:white; margin:0;'>👤 Mon Profil</h1>
+    <h1 style='color:white; margin:0;'>{t("profile_title", lang)}</h1>
     <p style='color:rgba(255,255,255,0.85); margin:5px 0 0;'>
-        Gérez vos informations et votre sécurité
+        {t("profile_subtitle", lang)}
     </p>
 </div>
 """, unsafe_allow_html=True)
 
 # ── Vérification connexion ───────────────────────────────────
 if "user" not in st.session_state or not st.session_state.get("authenticated", False):
-    st.warning("🔒 Vous devez être connecté pour accéder à cette page.")
+    st.warning(t("must_be_logged_in", lang))
     st.stop()
 
-user = st.session_state.get("user", {})
-plan = st.session_state.get("plan", "free")
-plan_labels = {"free": "Gratuit", "starter": "Starter", "pro": "Pro", "expert": "Expert"}
+user       = st.session_state.get("user", {})
+plan       = st.session_state.get("plan", "free")
+plan_labels = {
+    "free":    t("plan_free", lang),
+    "starter": t("plan_starter", lang),
+    "pro":     t("plan_pro", lang),
+    "expert":  t("plan_expert", lang),
+}
 plan_pills  = {"free": "pill-free", "starter": "pill-starter", "pro": "pill-pro", "expert": "pill-expert"}
 
 # ── Onglets ──────────────────────────────────────────────────
-tab1, tab2, tab3 = st.tabs(["📋 Mon compte", "🔑 Changer le mot de passe", "📧 Réinitialisation"])
+tab1, tab2, tab3 = st.tabs([
+    t("tab_account", lang),
+    t("tab_change_password", lang),
+    t("tab_reset", lang),
+])
 
 # ════════════════════════════════════════════════════════════
 # TAB 1 — INFORMATIONS DU COMPTE
@@ -76,31 +88,28 @@ with tab1:
     col_info, col_plan = st.columns([2, 1])
 
     with col_info:
-        st.markdown("""<div class="profile-card"><h3>📋 Informations personnelles</h3>""",
+        st.markdown(f"""<div class="profile-card"><h3>{t("personal_info", lang)}</h3>""",
                     unsafe_allow_html=True)
 
         with st.form("form_profil"):
-            nom       = st.text_input("Nom complet",
-                                      value=user.get("nom", ""),
-                                      placeholder="Jean-Claude Ndoubamoh")
-            email     = st.text_input("Email",
-                                      value=user.get("email", ""),
-                                      disabled=True,
-                                      help="L'email ne peut pas être modifié ici.")
-            pays      = st.selectbox("Pays de résidence",
-                                     ["Côte d'Ivoire", "Canada", "France", "Belgique",
-                                      "Sénégal", "Burkina Faso", "Mali", "Togo",
-                                      "Bénin", "Niger", "Guinée-Bissau", "Autre"],
-                                     index=0)
-            devise    = st.selectbox("Devise préférée",
-                                     ["USD", "EUR", "CAD", "FCFA"])
-            langue    = st.selectbox("Langue", ["Français", "English"])
+            nom    = st.text_input(t("full_name", lang),
+                                   value=user.get("nom", ""),
+                                   placeholder="Jean-Claude Ndoubamoh")
+            email  = st.text_input(t("email_label", lang),
+                                   value=user.get("email", ""),
+                                   disabled=True,
+                                   help=t("email_help", lang))
+            pays   = st.selectbox(t("country", lang),
+                                  ["Côte d'Ivoire", "Canada", "France", "Belgique",
+                                   "Sénégal", "Burkina Faso", "Mali", "Togo",
+                                   "Bénin", "Niger", "Guinée-Bissau", "Autre"],
+                                  index=0)
+            devise = st.selectbox(t("currency", lang), ["USD", "EUR", "CAD", "FCFA"])
 
-            submitted = st.form_submit_button("💾 Sauvegarder", use_container_width=True,
-                                              type="primary")
+            submitted = st.form_submit_button(t("save", lang), use_container_width=True, type="primary")
             if submitted:
                 st.session_state["user"] = {**user, "nom": nom, "pays": pays}
-                st.success("✅ Profil mis à jour avec succès !")
+                st.success(t("profile_saved", lang))
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -108,131 +117,115 @@ with tab1:
         pill_class = plan_pills.get(plan, "pill-free")
         st.markdown(f"""
         <div class="profile-card">
-            <h3>💳 Abonnement</h3>
-            <p>Plan actuel</p>
-            <span class="plan-pill {pill_class}">{plan_labels.get(plan, 'Gratuit')}</span>
+            <h3>{t("subscription_section", lang)}</h3>
+            <p>{t("current_plan_label", lang)}</p>
+            <span class="plan-pill {pill_class}">{plan_labels.get(plan, t('plan_free', lang))}</span>
             <br/><br/>
             <p style="font-size:13px; color:#8A8580;">
-                Membre depuis {user.get('created_at', datetime.now().strftime('%B %Y'))}
+                {t("member_since", lang)} {user.get('created_at', datetime.now().strftime('%B %Y'))}
             </p>
         </div>
         """, unsafe_allow_html=True)
-        st.link_button("⬆️ Changer de plan",
-                        "https://afrika-markets-stock.lemonsqueezy.com",
-                        use_container_width=True)
+        st.link_button(t("upgrade_plan", lang),
+                       "https://afrika-markets-stock.lemonsqueezy.com",
+                       use_container_width=True)
 
-        st.markdown("""
+        st.markdown(f"""
         <div class="profile-card" style="margin-top:1rem;">
-            <h3>📊 Statistiques</h3>
+            <h3>{t("stats_section", lang)}</h3>
         </div>
         """, unsafe_allow_html=True)
-        st.metric("Connexions ce mois", user.get("connexions_mois", 0))
-        st.metric("Alertes actives", user.get("alertes_actives", 0))
-        st.metric("Titres suivis", user.get("titres_suivis", 0))
+        st.metric(t("connections_month", lang), user.get("connexions_mois", 0))
+        st.metric(t("active_alerts", lang),     user.get("alertes_actives", 0))
+        st.metric(t("tracked_stocks", lang),    user.get("titres_suivis", 0))
 
 # ════════════════════════════════════════════════════════════
-# TAB 2 — CHANGER LE MOT DE PASSE (utilisateur connecté)
+# TAB 2 — CHANGER LE MOT DE PASSE
 # ════════════════════════════════════════════════════════════
 with tab2:
-    st.markdown("### 🔑 Changer votre mot de passe")
-    st.caption("Vous devez connaître votre mot de passe actuel pour effectuer ce changement.")
+    st.markdown(f"### {t('change_password_title', lang)}")
+    st.caption(t("change_password_caption", lang))
 
     with st.form("form_change_password"):
-        ancien_mdp   = st.text_input("Mot de passe actuel",
-                                      type="password",
-                                      placeholder="••••••••")
-        nouveau_mdp  = st.text_input("Nouveau mot de passe",
-                                      type="password",
-                                      placeholder="Minimum 8 caractères")
-        confirm_mdp  = st.text_input("Confirmer le nouveau mot de passe",
-                                      type="password",
-                                      placeholder="Répétez le nouveau mot de passe")
+        ancien_mdp  = st.text_input(t("current_password", lang), type="password", placeholder="••••••••")
+        nouveau_mdp = st.text_input(t("new_password", lang),     type="password",
+                                    placeholder=t("min_8_chars", lang))
+        confirm_mdp = st.text_input(t("confirm_password", lang), type="password",
+                                    placeholder=t("min_8_chars", lang))
 
-        # Indicateur de force
         if nouveau_mdp:
-            force = 0
             checks = {
-                "8 caractères minimum": len(nouveau_mdp) >= 8,
-                "Une majuscule":        bool(re.search(r'[A-Z]', nouveau_mdp)),
-                "Un chiffre":           bool(re.search(r'\d', nouveau_mdp)),
-                "Un caractère spécial": bool(re.search(r'[^A-Za-z0-9]', nouveau_mdp)),
+                t("min_8_chars", lang):  len(nouveau_mdp) >= 8,
+                t("one_uppercase", lang): bool(re.search(r'[A-Z]', nouveau_mdp)),
+                t("one_digit", lang):     bool(re.search(r'\d', nouveau_mdp)),
+                t("one_special", lang):   bool(re.search(r'[^A-Za-z0-9]', nouveau_mdp)),
             }
-            force = sum(checks.values())
-            labels = ["", "Faible", "Moyen", "Fort", "Très fort"]
+            force  = sum(checks.values())
+            labels = ["", t("strength_weak", lang), t("strength_medium", lang),
+                      t("strength_strong", lang), t("strength_very_strong", lang)]
             colors = ["", "red", "orange", "blue", "green"]
             st.progress(force / 4)
-            st.caption(f"Force : :{colors[force]}[{labels[force]}]")
+            st.caption(f"{t('password_strength', lang)} : :{colors[force]}[{labels[force]}]")
             for label, ok in checks.items():
                 st.caption(f"{'✅' if ok else '❌'} {label}")
 
-        submitted = st.form_submit_button("🔒 Mettre à jour le mot de passe",
+        submitted = st.form_submit_button(t("update_password_btn", lang),
                                           use_container_width=True, type="primary")
         if submitted:
             if not ancien_mdp:
-                st.error("Veuillez saisir votre mot de passe actuel.")
+                st.error(t("err_enter_current_pwd", lang))
             elif len(nouveau_mdp) < 8:
-                st.error("Le nouveau mot de passe doit contenir au moins 8 caractères.")
+                st.error(t("err_pwd_too_short", lang))
             elif nouveau_mdp != confirm_mdp:
-                st.error("Les mots de passe ne correspondent pas.")
+                st.error(t("err_pwd_no_match", lang))
             else:
-                # ── Ici : appel à votre backend pour vérifier l'ancien mdp et mettre à jour ──
-                # Exemple : backend.update_password(user_id, ancien_mdp, nouveau_mdp)
-                st.success("✅ Mot de passe mis à jour avec succès !")
+                st.success(t("password_updated", lang))
                 st.balloons()
 
 # ════════════════════════════════════════════════════════════
-# TAB 3 — RÉINITIALISATION PAR EMAIL (mot de passe oublié)
+# TAB 3 — RÉINITIALISATION PAR EMAIL
 # ════════════════════════════════════════════════════════════
 with tab3:
-    st.markdown("### 📧 Réinitialiser votre mot de passe par email")
-    st.caption("""
-    Vous recevrez un lien de réinitialisation valable **30 minutes**.  
-    Vérifiez aussi vos **spams** si vous ne recevez rien dans 5 minutes.
-    """)
+    st.markdown(f"### {t('reset_pwd_title', lang)}")
+    st.caption(t("reset_pwd_caption", lang))
 
     with st.form("form_reset_password"):
-        email_reset = st.text_input("Votre adresse email",
-                                     placeholder="exemple@email.com",
-                                     value=user.get("email", ""))
+        email_reset = st.text_input(t("your_email", lang),
+                                    placeholder="exemple@email.com",
+                                    value=user.get("email", ""))
 
-        submitted = st.form_submit_button("📨 Envoyer le lien de réinitialisation",
-                                          use_container_width=True)
+        submitted = st.form_submit_button(t("send_reset_link", lang), use_container_width=True)
         if submitted:
             if not email_reset or "@" not in email_reset:
-                st.error("Veuillez saisir une adresse email valide.")
+                st.error(t("err_invalid_email", lang))
             else:
-                # ── Ici : appel à votre backend pour envoyer l'email de reset ──
-                # Exemple : backend.send_reset_email(email_reset)
-                st.success(f"""
-                ✅ Un lien de réinitialisation a été envoyé à **{email_reset}**  
-                Le lien est valable 30 minutes.
-                """)
-                st.info("📬 Pensez à vérifier vos spams si vous ne recevez pas l'email.")
+                st.success(t("reset_link_sent", lang).format(email=email_reset))
+                st.info(t("check_spam", lang))
 
     st.markdown("---")
-    st.markdown("""
+    st.markdown(f"""
     <div class="profile-card">
-        <h3>🛡️ Conseils de sécurité</h3>
+        <h3>{t("security_tips", lang)}</h3>
         <ul style="color:#8A8580; font-size:13px; padding-left:1.2rem;">
-            <li>Utilisez un mot de passe unique pour Afrika Markets</li>
-            <li>Activez l'authentification à deux facteurs dès que disponible</li>
-            <li>Ne partagez jamais vos identifiants</li>
-            <li>Déconnectez-vous sur les appareils partagés</li>
+            <li>{'Utilisez un mot de passe unique pour Afrika Markets' if lang=='fr' else 'Use a unique password for Afrika Markets' if lang=='en' else 'Utilice una contraseña única para Afrika Markets' if lang=='es' else 'Use uma senha única para a Afrika Markets' if lang=='pt' else '为Afrika Markets使用唯一密码' if lang=='zh' else 'استخدم كلمة مرور فريدة لـ Afrika Markets'}</li>
+            <li>{'Activez l\'authentification à deux facteurs dès que disponible' if lang=='fr' else 'Enable two-factor authentication when available' if lang=='en' else 'Active la autenticación de dos factores cuando esté disponible' if lang=='es' else 'Ative a autenticação de dois fatores quando disponível' if lang=='pt' else '尽快启用双因素认证' if lang=='zh' else 'فعّل المصادقة الثنائية عند توفرها'}</li>
+            <li>{'Ne partagez jamais vos identifiants' if lang=='fr' else 'Never share your credentials' if lang=='en' else 'Nunca comparta sus credenciales' if lang=='es' else 'Nunca compartilhe suas credenciais' if lang=='pt' else '切勿分享您的账户信息' if lang=='zh' else 'لا تشارك بيانات اعتمادك أبداً'}</li>
+            <li>{'Déconnectez-vous sur les appareils partagés' if lang=='fr' else 'Log out on shared devices' if lang=='en' else 'Cierre sesión en dispositivos compartidos' if lang=='es' else 'Saia em dispositivos compartilhados' if lang=='pt' else '在共享设备上退出登录' if lang=='zh' else 'سجّل الخروج على الأجهزة المشتركة'}</li>
         </ul>
     </div>
     """, unsafe_allow_html=True)
 
 # ── Zone de danger ───────────────────────────────────────────
 st.markdown("---")
-with st.expander("⚠️ Zone de danger", expanded=False):
-    st.warning("Les actions ci-dessous sont irréversibles.")
+with st.expander(t("danger_zone", lang), expanded=False):
+    st.warning(t("irreversible_warning", lang))
     col_a, col_b = st.columns(2)
     with col_a:
-        if st.button("🚪 Se déconnecter", use_container_width=True):
+        if st.button(t("logout_btn", lang), use_container_width=True):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
-            st.success("Vous avez été déconnecté.")
+            st.success(t("logged_out", lang))
             st.rerun()
     with col_b:
-        if st.button("🗑️ Supprimer mon compte", use_container_width=True, type="secondary"):
-            st.error("Pour supprimer votre compte, contactez : support@afrikamarkets.io")
+        if st.button(t("delete_account_btn", lang), use_container_width=True, type="secondary"):
+            st.error(t("delete_account_msg", lang))

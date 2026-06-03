@@ -5,6 +5,7 @@ Investment Intelligence Platform for African Frontier Markets
 import streamlit as st
 from data.brvm_scraper import get_actions, get_indices, get_marche
 from frontend.auth_ui import render_auth_sidebar
+from utils.i18n import t, get_lang
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
@@ -17,65 +18,47 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ── Langue ──────────────────────────────────────────────────
-LANG = st.sidebar.selectbox("🌐 Langue / Language", ["Français", "English"])
-FR = LANG == "Français"
-
-T = {
-    "title":        "Afrika Markets Intelligence",
-    "subtitle":     "Investment Intelligence Platform — Marchés Frontier Africains" if FR else "Investment Intelligence Platform for African Frontier Markets",
-    "refresh":      "🔄 Actualiser" if FR else "🔄 Refresh",
-    "cap_actions":  "Capitalisation Actions" if FR else "Market Cap (Equities)",
-    "cap_oblig":    "Capitalisation Obligations" if FR else "Market Cap (Bonds)",
-    "transactions": "Transactions du jour" if FR else "Daily Transactions",
-    "top5":         "🏆 Top 5 Performances" if FR else "🏆 Top 5 Performers",
-    "flop5":        "📉 Flop 5" if FR else "📉 Bottom 5",
-    "indices":      "📊 Indices BRVM" if FR else "📊 BRVM Indices",
-    "sectoriel":    "🏭 Performance Sectorielle" if FR else "🏭 Sector Performance",
-    "maj":          "Dernière mise à jour" if FR else "Last updated",
-}
+lang = get_lang()
+FR   = lang == "fr"   # rétrocompatibilité auth_ui
 
 # ── Header ──────────────────────────────────────────────────
 st.markdown(f"""
 <div style='background: linear-gradient(135deg, #006B3F, #FFD700);
      padding: 20px; border-radius: 12px; margin-bottom: 20px;'>
-    <h1 style='color:white; margin:0;'>🌍 {T["title"]}</h1>
-    <p style='color:rgba(255,255,255,0.85); margin:5px 0 0;'>{T["subtitle"]}</p>
+    <h1 style='color:white; margin:0;'>🌍 Afrika Markets Intelligence</h1>
+    <p style='color:rgba(255,255,255,0.85); margin:5px 0 0;'>{t("home_subtitle", lang)}</p>
 </div>
 """, unsafe_allow_html=True)
 
 # ── Sidebar ──────────────────────────────────────────────────
 st.sidebar.image("https://www.brvm.org/sites/default/files/brvm_logo.png", width=150)
 st.sidebar.markdown("---")
-if st.sidebar.button(T["refresh"]):
+if st.sidebar.button(t("refresh", lang)):
     st.cache_data.clear()
     st.rerun()
-st.sidebar.markdown(f"*{T['maj']} : {datetime.now().strftime('%H:%M:%S')}*")
+st.sidebar.markdown(f"*{t('last_updated', lang)} : {datetime.now().strftime('%H:%M:%S')}*")
 
 render_auth_sidebar(fr=FR)
 
 # ── Chargement données ───────────────────────────────────────
-with st.spinner("Chargement données BRVM..." if FR else "Loading BRVM data..."):
-    df = get_actions()
+with st.spinner(t("loading_data", lang)):
+    df      = get_actions()
     indices = get_indices()
-    marche = get_marche()
+    marche  = get_marche()
 
 # ── KPIs marché ──────────────────────────────────────────────
 col1, col2, col3 = st.columns(3)
 with col1:
-    val = marche.get("Capitalisation Actions", "N/A")
-    st.metric(T["cap_actions"], val)
+    st.metric(t("home_cap_actions", lang), marche.get("Capitalisation Actions", "N/A"))
 with col2:
-    val = marche.get("Capitalisation des obligations", "N/A")
-    st.metric(T["cap_oblig"], val)
+    st.metric(t("home_cap_oblig", lang), marche.get("Capitalisation des obligations", "N/A"))
 with col3:
-    val = marche.get("Valeur des transactions", "N/A")
-    st.metric(T["transactions"], val)
+    st.metric(t("home_transactions", lang), marche.get("Valeur des transactions", "N/A"))
 
 st.markdown("---")
 
 # ── Indices ──────────────────────────────────────────────────
-st.subheader(T["indices"])
+st.subheader(t("home_indices", lang))
 if indices["marche"]:
     cols = st.columns(len(indices["marche"]))
     for i, idx in enumerate(indices["marche"]):
@@ -89,7 +72,7 @@ if indices["marche"]:
 st.markdown("---")
 
 # ── Performance sectorielle ──────────────────────────────────
-st.subheader(T["sectoriel"])
+st.subheader(t("home_sector_perf", lang))
 if indices["sectoriel"]:
     df_sec = pd.DataFrame(indices["sectoriel"])
     df_sec["nom"] = df_sec["nom"].str.replace("BRVM - ", "").str.replace("BRVM – ", "")
@@ -99,7 +82,7 @@ if indices["sectoriel"]:
         orientation="h",
         color="var_ytd",
         color_continuous_scale=["#FF4444", "#FFD700", "#00CC66"],
-        title="Performance YTD par secteur (%)" if FR else "YTD Performance by Sector (%)",
+        title=t("home_ytd_chart", lang),
         labels={"var_ytd": "Variation YTD (%)", "nom": ""},
     )
     fig.update_layout(
@@ -121,7 +104,7 @@ if not df.empty:
     flop5 = df.nsmallest(5, "variation")
 
     with col_top:
-        st.subheader(T["top5"])
+        st.subheader(t("home_top5", lang))
         for _, r in top5.iterrows():
             st.markdown(f"""
             <div style='background:#0D3B27; padding:10px; border-radius:8px;
@@ -133,7 +116,7 @@ if not df.empty:
             </div>""", unsafe_allow_html=True)
 
     with col_flop:
-        st.subheader(T["flop5"])
+        st.subheader(t("home_flop5", lang))
         for _, r in flop5.iterrows():
             st.markdown(f"""
             <div style='background:#3B0D0D; padding:10px; border-radius:8px;

@@ -5,50 +5,51 @@ import streamlit as st
 import plotly.express as px
 from data.brvm_scraper import get_actions
 from frontend.auth_ui import render_auth_sidebar
+from utils.i18n import t, get_lang
 
 st.set_page_config(page_title="Marché BRVM — Afrika Markets", layout="wide")
 
-LANG = st.sidebar.selectbox("🌐 Langue / Language", ["Français", "English"])
-FR = LANG == "Français"
+lang = get_lang()
+FR   = lang == "fr"
 
 render_auth_sidebar(fr=FR)
 
-st.title("📊 Marché Actions BRVM" if FR else "📊 BRVM Equity Market")
+st.title(t("market_title", lang))
 
 df = get_actions()
 
 if df.empty:
-    st.error("Données indisponibles" if FR else "Data unavailable")
+    st.error(t("data_unavailable", lang))
     st.stop()
 
 # Filtres
 col1, col2, col3 = st.columns(3)
 with col1:
-    secteurs = ["Tous / All"] + sorted(df["secteur"].dropna().unique().tolist())
-    secteur = st.selectbox("Secteur" if FR else "Sector", secteurs)
+    secteurs = [t("all_filter", lang)] + sorted(df["secteur"].dropna().unique().tolist())
+    secteur  = st.selectbox(t("sector", lang), secteurs)
 with col2:
     tri = st.selectbox(
-        "Trier par" if FR else "Sort by",
+        t("sort_by", lang),
         ["variation", "cours", "volume", "symbole"]
     )
 with col3:
-    ordre = st.selectbox("Ordre" if FR else "Order", 
-                         ["Décroissant / Desc", "Croissant / Asc"])
+    ordre_label = [t("descending", lang), t("ascending", lang)]
+    ordre       = st.selectbox(t("order", lang), ordre_label)
 
 # Filtrage
 df_f = df.copy()
-if secteur != "Tous / All":
+if secteur != t("all_filter", lang):
     df_f = df_f[df_f["secteur"] == secteur]
 
-asc = "Croissant" in ordre
+asc  = ordre == t("ascending", lang)
 df_f = df_f.sort_values(tri, ascending=asc)
 
 # KPIs
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Titres" if FR else "Stocks", len(df_f))
-c2.metric("Hausse / Up", len(df_f[df_f["variation"] > 0]))
-c3.metric("Baisse / Down", len(df_f[df_f["variation"] < 0]))
-c4.metric("Stable", len(df_f[df_f["variation"] == 0]))
+c1.metric(t("stocks", lang),    len(df_f))
+c2.metric(t("up", lang),        len(df_f[df_f["variation"] > 0]))
+c3.metric(t("down", lang),      len(df_f[df_f["variation"] < 0]))
+c4.metric(t("stable", lang),    len(df_f[df_f["variation"] == 0]))
 
 st.markdown("---")
 
@@ -61,10 +62,10 @@ fig = px.scatter(
     color_continuous_scale=["#FF4444", "#FFD700", "#00CC66"],
     hover_name="nom",
     hover_data={"symbole": True, "variation": True, "volume": True},
-    title="Cours veille vs Cours clôture" if FR else "Previous vs Closing Price",
+    title=t("bubble_title", lang),
     labels={
-        "cours_veille": "Cours veille (FCFA)" if FR else "Previous Price (FCFA)",
-        "cours": "Cours clôture (FCFA)" if FR else "Closing Price (FCFA)",
+        "cours_veille": t("prev_price_label", lang),
+        "cours":        t("close_price_label", lang),
     },
     size_max=40,
 )
@@ -77,27 +78,27 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # Tableau complet
-st.subheader("Cours détaillés" if FR else "Detailed Quotes")
+st.subheader(t("detailed_quotes", lang))
 df_show = df_f.rename(columns={
-    "symbole": "Symbole",
-    "nom": "Société" if FR else "Company",
-    "volume": "Volume",
-    "cours_veille": "Veille / Prev",
-    "cours_ouv": "Ouverture / Open",
-    "cours": "Clôture / Close",
-    "variation": "Var (%)",
-    "secteur": "Secteur" if FR else "Sector",
+    "symbole":    "Symbole",
+    "nom":        t("company", lang),
+    "volume":     t("volume", lang),
+    "cours_veille": t("prev_col", lang),
+    "cours_ouv":  t("open_col", lang),
+    "cours":      t("close_col", lang),
+    "variation":  "Var (%)",
+    "secteur":    t("sector", lang),
 })
 
 st.dataframe(
-    df_show.style.format({"Var (%)": "{:.2f}%", "Volume": "{:,.0f}",
-              "Veille / Prev": "{:,.0f}", "Clôture / Close": "{:,.0f}"}),
+    df_show.style.format({
+        "Var (%)":           "{:.2f}%",
+        t("volume", lang):   "{:,.0f}",
+        t("prev_col", lang): "{:,.0f}",
+        t("close_col", lang):"{:,.0f}",
+    }),
     use_container_width=True,
     height=500,
 )
 
-st.caption(
-    "Source : brvm.org — données temps réel (cache 15 min) · Pipeline DB automatique toutes les 15 min"
-    if FR else
-    "Source: brvm.org — real-time data (15 min cache) · Automated DB pipeline every 15 min"
-)
+st.caption(t("source_caption", lang))

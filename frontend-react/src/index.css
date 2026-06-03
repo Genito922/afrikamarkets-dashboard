@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-gray-950 text-gray-100 font-sans antialiased;
+  }
+
+  /* RTL support for Arabic */
+  [dir="rtl"] {
+    text-align: right;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold
+           bg-brand-500 hover:bg-brand-400 text-white transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2 focus:ring-offset-gray-950;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold
+           border border-gray-700 hover:border-brand-500 text-gray-200 hover:text-white
+           transition-all duration-200 bg-gray-900 hover:bg-gray-800;
+  }
+
+  .card {
+    @apply bg-gray-900 border border-gray-800 rounded-2xl p-6 transition-all duration-200
+           hover:border-gray-700;
+  }
+
+  .plan-card {
+    @apply card cursor-pointer;
+  }
+
+  .plan-card.popular {
+    @apply border-brand-500 ring-1 ring-brand-500;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+  }
+}
