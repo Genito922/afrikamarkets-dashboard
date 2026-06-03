@@ -82,8 +82,13 @@ st.info(t("current_plan_info", lang).format(plan=plan_labels.get(current_plan, t
 st.markdown("---")
 
 # ── Grille des plans ─────────────────────────────────────────
-col1, col2, col3 = st.columns(3, gap="medium")
-LS_BASE = "https://afrika-markets-stock.lemonsqueezy.com/buy"
+col1, col2, col3, col4 = st.columns(4, gap="medium")
+LS = {
+    "starter":        "https://afrika-markets-stock.lemonsqueezy.com/checkout/buy/737c9823-4248-488a-a736-e22820f23e18",
+    "pro":            "https://afrika-markets-stock.lemonsqueezy.com/checkout/buy/ae008a73-cf01-41e6-b602-270c9a943409",
+    "expert":         "https://afrika-markets-stock.lemonsqueezy.com/checkout/buy/12ca2955-7928-4a10-8266-59cfbcf13078",
+    "expert_premium": "https://afrika-markets-stock.lemonsqueezy.com/checkout/buy/d7672acb-6acb-40f0-b5eb-a4022f7fc7c0",
+}
 
 # ── STARTER ─────────────────────────────────────────────────
 with col1:
@@ -106,7 +111,7 @@ with col1:
     </div>
     """, unsafe_allow_html=True)
     if not is_current:
-        st.link_button(t("free_trial_btn", lang), f"{LS_BASE}/starter", use_container_width=True)
+        st.link_button(t("free_trial_btn", lang), LS["starter"], use_container_width=True)
 
 # ── PRO ─────────────────────────────────────────────────────
 with col2:
@@ -122,14 +127,14 @@ with col2:
         <div class="feature-item active"><span class="check">✓</span>War Room {'complet' if lang=='fr' else 'full access'}</div>
         <div class="feature-item active"><span class="check">✓</span>{'Simulateur de portefeuille' if lang=='fr' else 'Portfolio Simulator'}</div>
         <div class="feature-item active"><span class="check">✓</span>{'Alertes prix &amp; risques' if lang=='fr' else 'Price &amp; risk alerts'}</div>
+        <div class="feature-item active"><span class="check">✓</span>{'SGI &amp; OPCVM Intelligence Center' if lang=='fr' else 'SGI &amp; OPCVM Intelligence Center'}</div>
         <div class="feature-item active"><span class="check">✓</span>{'Brief intelligence hebdomadaire' if lang=='fr' else 'Weekly intelligence brief'}</div>
-        <div class="feature-item"><span class="dash">—</span>{'Briefings 1-on-1 mensuels' if lang=='fr' else 'Monthly 1-on-1 briefings'}</div>
         <br/>
         {'<div class="current-badge">✓ Plan actuel</div>' if is_current else ''}
     </div>
     """, unsafe_allow_html=True)
     if not is_current:
-        st.link_button(t("free_trial_btn", lang), f"{LS_BASE}/pro",
+        st.link_button(t("free_trial_btn", lang), LS["pro"],
                        use_container_width=True, type="primary")
 
 # ── EXPERT ───────────────────────────────────────────────────
@@ -152,19 +157,43 @@ with col3:
     </div>
     """, unsafe_allow_html=True)
     if not is_current:
-        st.link_button(t("free_trial_btn", lang), f"{LS_BASE}/expert", use_container_width=True)
+        st.link_button(t("free_trial_btn", lang), LS["expert"], use_container_width=True)
+
+# ── EXPERT PREMIUM ───────────────────────────────────────────
+with col4:
+    is_current = current_plan == "expert_premium"
+    st.markdown(f"""
+    <div class="plan-card" style="border-color:rgba(168,85,247,0.5);">
+        <p class="plan-name" style="color:#a855f7;">Expert Premium</p>
+        <div class="plan-price">$299<sub>.99/mo</sub></div>
+        <p class="plan-desc">{'Pour les institutions, family offices et gestionnaires de fonds.' if lang=='fr' else 'For institutions, family offices and fund managers.' if lang=='en' else 'Para instituciones, family offices y gestores de fondos.' if lang=='es' else 'Para instituições, family offices e gestores de fundos.' if lang=='pt' else '面向机构、家族办公室和基金经理。' if lang=='zh' else 'للمؤسسات ومكاتب العائلة ومديري الصناديق.'}</p>
+        <div class="feature-item active"><span class="check">✓</span>{'Tout le plan Expert' if lang=='fr' else 'All Expert features'}</div>
+        <div class="feature-item active"><span class="check">✓</span>{'Accès API données brutes' if lang=='fr' else 'Raw data API access'}</div>
+        <div class="feature-item active"><span class="check">✓</span>{'Modèles de valorisation exclusifs' if lang=='fr' else 'Exclusive valuation models'}</div>
+        <div class="feature-item active"><span class="check">✓</span>{'Briefings illimités' if lang=='fr' else 'Unlimited briefings'}</div>
+        <div class="feature-item active"><span class="check">✓</span>{'Onboarding dédié' if lang=='fr' else 'Dedicated onboarding'}</div>
+        <div class="feature-item active"><span class="check">✓</span>SLA 24/7</div>
+        <div class="feature-item active"><span class="check">✓</span>{'Co-branding rapports clients' if lang=='fr' else 'Client report co-branding'}</div>
+        <br/>
+        {'<div class="current-badge">✓ Plan actuel</div>' if is_current else ''}
+    </div>
+    """, unsafe_allow_html=True)
+    if not is_current:
+        st.link_button(t("free_trial_btn", lang), LS["expert_premium"], use_container_width=True)
 
 # ── Liens directs ────────────────────────────────────────────
 st.markdown("---")
 st.markdown(f"### {t('direct_links_title', lang)}")
 
-c1, c2, c3 = st.columns(3)
+c1, c2, c3, c4 = st.columns(4)
 with c1:
-    st.link_button("Starter — $29.99/mo", f"{LS_BASE}/starter", use_container_width=True)
+    st.link_button("Starter — $29.99/mo", LS["starter"], use_container_width=True)
 with c2:
-    st.link_button("Pro — $74.99/mo ⭐", f"{LS_BASE}/pro", use_container_width=True, type="primary")
+    st.link_button("Pro — $74.99/mo ⭐", LS["pro"], use_container_width=True, type="primary")
 with c3:
-    st.link_button("Expert — $199.99/mo", f"{LS_BASE}/expert", use_container_width=True)
+    st.link_button("Expert — $199.99/mo", LS["expert"], use_container_width=True)
+with c4:
+    st.link_button("Expert Premium — $299.99/mo", LS["expert_premium"], use_container_width=True)
 
 st.markdown("---")
 st.caption(t("legal_note", lang))
