@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@translations": resolve(__dirname, "../translations"),
+      "@translations": resolve(__dirname, "src/translations"),
       "@": resolve(__dirname, "src"),
     },
   },
