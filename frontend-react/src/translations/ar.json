@@ -330,5 +330,20 @@
   "plan_required_pro": "🔒 تتطلب هذه الميزة اشتراكاً Pro أو أعلى.",
   "sgi_filled": "تأسست عام",
   "sgi_ranking_info": "النقاط محسوبة على 7 معايير مرجحة. المصدر: بيانات BRVM العامة + تقييمات داخلية.",
-  "sgi_score_note": "/10 × الوزن"
+  "sgi_score_note": "/10 × الوزن",
+
+  "nav_dashboard": "لوحة التحكم",
+  "login_btn": "تسجيل الدخول",
+  "register_btn": "تجربة مجانية",
+  "no_account": "ليس لديك حساب؟",
+  "already_account": "لديك حساب بالفعل؟",
+  "home_feat_market": "أسواق BRVM في الوقت الفعلي",
+  "home_feat_alerts": "تنبيهات الأسعار والمخاطر",
+  "home_hero_title": "استثمر في BRVM",
+  "home_hero_subtitle": "بذكاء",
+  "home_hero_desc": "بيانات في الوقت الفعلي، تحليل تقني متقدم، تصنيفات SGI & OPCVM، وتوصيات AI للمغتربين الأفارقة.",
+  "home_see_demo": "مشاهدة العرض",
+  "home_features_title": "كل ما تحتاجه",
+  "home_features_desc": "منصة كاملة لتحليل ومقارنة والاستثمار في الأسواق الأفريقية.",
+  "home_cta_title": "هل أنت مستعد للاستثمار في BRVM؟"
 }

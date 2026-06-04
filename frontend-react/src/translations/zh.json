@@ -330,5 +330,20 @@
   "plan_required_pro": "🔒 此功能需要Pro订阅或更高级别。",
   "sgi_filled": "成立于",
   "sgi_ranking_info": "评分基于7项加权标准。来源：BRVM公开数据 + 内部评估。",
-  "sgi_score_note": "/10 × 权重"
+  "sgi_score_note": "/10 × 权重",
+
+  "nav_dashboard": "仪表板",
+  "login_btn": "登录",
+  "register_btn": "免费试用",
+  "no_account": "还没有账号？",
+  "already_account": "已有账号？",
+  "home_feat_market": "实时BRVM市场",
+  "home_feat_alerts": "价格与风险提醒",
+  "home_hero_title": "在BRVM投资",
+  "home_hero_subtitle": "智能投资",
+  "home_hero_desc": "实时数据、高级技术分析、SGI & OPCVM排名，以及为非洲海外侨民提供AI推荐。",
+  "home_see_demo": "查看演示",
+  "home_features_title": "您所需的一切",
+  "home_features_desc": "一个完整的平台，用于分析、比较和投资非洲市场。",
+  "home_cta_title": "准备好在BRVM投资了吗？"
 }

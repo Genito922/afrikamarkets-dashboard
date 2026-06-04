@@ -330,5 +330,20 @@
   "plan_required_pro": "🔒 This feature requires a Pro subscription or higher.",
   "sgi_filled": "founded in",
   "sgi_ranking_info": "Scores calculated on 7 weighted criteria. Source: public BRVM data + internal assessments.",
-  "sgi_score_note": "/10 × weight"
+  "sgi_score_note": "/10 × weight",
+
+  "nav_dashboard": "Dashboard",
+  "login_btn": "Login",
+  "register_btn": "Free trial",
+  "no_account": "No account yet?",
+  "already_account": "Already have an account?",
+  "home_feat_market": "Real-time BRVM markets",
+  "home_feat_alerts": "Price & risk alerts",
+  "home_hero_title": "Invest on the BRVM",
+  "home_hero_subtitle": "with intelligence",
+  "home_hero_desc": "Real-time data, advanced technical analysis, SGI & OPCVM rankings, and AI recommendations for the African diaspora.",
+  "home_see_demo": "See demo",
+  "home_features_title": "Everything you need",
+  "home_features_desc": "A complete platform to analyze, compare and invest in African markets.",
+  "home_cta_title": "Ready to invest on the BRVM?"
 }

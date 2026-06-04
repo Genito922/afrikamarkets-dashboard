@@ -1,14 +1,48 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+
+const API = import.meta.env.VITE_API_URL || "";
 
 export default function Register() {
   const { t } = useTranslation();
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const navigate = useNavigate();
+  const [form, setForm]     = useState({ name: "", email: "", password: "", country: "CA" });
+  const [error, setError]   = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: call POST /api/auth/register
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: form.email,
+          password: form.password,
+          full_name: form.name,
+          country: form.country,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.detail || "Erreur d'inscription");
+      } else {
+        localStorage.setItem("ami_token", data.access_token);
+        localStorage.setItem("ami_user", JSON.stringify({
+          full_name: data.full_name,
+          plan: data.plan,
+          status: data.status,
+        }));
+        navigate("/dashboard");
+      }
+    } catch {
+      setError("Serveur inaccessible — vérifiez votre connexion");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -17,10 +51,16 @@ export default function Register() {
         <div className="text-center mb-8">
           <span className="text-4xl">🌍</span>
           <h1 className="text-2xl font-bold text-white mt-3">Afrika Markets Intelligence</h1>
-          <p className="text-gray-400 mt-1">{t("free_trial_btn")} — 14 jours gratuits</p>
+          <p className="text-gray-400 mt-1">{t("register_btn")} — 14 jours gratuits</p>
         </div>
 
         <form onSubmit={handleSubmit} className="card flex flex-col gap-5">
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg">
+              {error}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm text-gray-400 mb-1">{t("full_name")}</label>
             <input
@@ -53,17 +93,28 @@ export default function Register() {
             <p className="text-xs text-gray-500 mt-1">{t("min_8_chars")}</p>
           </div>
 
-          <button type="submit" className="btn-primary w-full">
-            {t("free_trial_btn")}
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">{t("country")}</label>
+            <select
+              value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })}
+              className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5
+                         focus:outline-none focus:ring-1 focus:ring-brand-500"
+            >
+              {["CA","FR","BE","CH","CI","SN","ML","BF","TG","BJ","NE","GW"].map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
+            {loading ? "..." : t("register_btn")}
           </button>
 
           <p className="text-center text-xs text-gray-500">{t("legal_note")}</p>
 
           <p className="text-center text-sm text-gray-400">
-            {t("already_account", "Déjà un compte ?")}{" "}
-            <Link to="/login" className="text-brand-400 hover:underline">
-              {t("login_btn", "Se connecter")}
-            </Link>
+            {t("already_account")}{" "}
+            <Link to="/login" className="text-brand-400 hover:underline">{t("login_btn")}</Link>
           </p>
         </form>
       </div>
