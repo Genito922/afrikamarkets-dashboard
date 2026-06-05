@@ -31,26 +31,33 @@ _FALLBACK_RATES = {
 async def _fetch_frankfurter() -> dict:
     """
     Frankfurter (BCE) — gratuit, no key, 84 devises.
-    XOF non couvert directement → passage par EUR (1 EUR = 655.957 XOF fixe UMOA)
+    Essaie api.frankfurter.dev puis api.frankfurter.app (backup).
+    XOF : parité fixe EUR (655.957 XOF = 1 EUR, accord UMOA/France).
     """
+    urls = [
+        "https://api.frankfurter.dev/v1/latest",
+        "https://api.frankfurter.app/latest",
+    ]
     async with httpx.AsyncClient(timeout=8) as client:
-        r = await client.get(
-            "https://api.frankfurter.dev/v2/latest",
-            params={"base": "USD"}
-        )
-        r.raise_for_status()
-        data = r.json()
-        rates = data.get("rates", {})
-
-        # XOF : parité fixe avec EUR (655.957 XOF = 1 EUR)
-        if "EUR" in rates and "XOF" not in rates:
-            rates["XOF"] = round(rates["EUR"] * 655.957, 2)
-        if "XAF" not in rates and "EUR" in rates:
-            rates["XAF"] = round(rates["EUR"] * 655.957, 2)
-
-        rates["USD"] = 1.0
-        logger.info(f"[FX] Frankfurter OK | USD/XOF={rates.get('XOF'):.0f}")
-        return rates
+        for url in urls:
+            try:
+                r = await client.get(url, params={"base": "USD"})
+                r.raise_for_status()
+                data = r.json()
+                rates = data.get("rates", {})
+                if not rates:
+                    continue
+                # XOF : parité fixe avec EUR
+                if "EUR" in rates and "XOF" not in rates:
+                    rates["XOF"] = round(rates["EUR"] * 655.957, 2)
+                if "XAF" not in rates and "EUR" in rates:
+                    rates["XAF"] = round(rates["EUR"] * 655.957, 2)
+                rates["USD"] = 1.0
+                logger.info(f"[FX] Frankfurter OK ({url}) | USD/XOF={rates.get('XOF'):.0f}")
+                return rates
+            except Exception as e:
+                logger.warning(f"[FX] Frankfurter {url} échoué: {e}")
+    raise RuntimeError("Frankfurter indisponible")
 
 
 async def _fetch_fawazahmed() -> dict:
