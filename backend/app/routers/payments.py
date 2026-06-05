@@ -13,6 +13,7 @@ import hashlib
 import httpx
 
 from backend.app.core.database import get_db
+from backend.app.core.exchange_rates import get_rates, convert, get_cache_info
 from backend.app.models.models import Payment, User, PlanEnum, StatusEnum
 from backend.app.routers.licences import generate_licence
 
@@ -25,12 +26,13 @@ ORANGE_API_KEY        = os.getenv("ORANGE_API_KEY", "")
 FRONTEND_URL          = os.getenv("FRONTEND_URL", "https://afrika-markets.streamlit.app")
 
 # Taux de change (mis à jour manuellement — 1 USD ≈ 600 XOF, 1 CAD ≈ 440 XOF)
-USD_TO_XOF = 600
-CAD_TO_XOF = 440
-
-def _xof(usd: float) -> int:
-    """Conversion USD → XOF arrondie au millier."""
-    return round(usd * USD_TO_XOF / 1000) * 1000
+# Taux récupérés dynamiquement via exchange_rates.py
+# Les prix FCFA dans PLANS sont calculés au moment de la requête
+async def _xof(usd: float) -> int:
+    """Conversion USD → XOF via API taux de change (cache 6h)."""
+    from backend.app.core.exchange_rates import xof_rate
+    rate = await xof_rate()
+    return round(usd * rate / 1000) * 1000
 
 PLANS = {
     "starter": {
@@ -332,3 +334,42 @@ async def get_plans_currency(currency: str):
         }
         for key, p in PLANS.items()
     }
+
+
+# ── Taux de change live ──────────────────────────────────────
+
+@router.get("/rates")
+async def get_exchange_rates():
+    """Taux de change USD-based en temps réel (cache 6h)."""
+    from backend.app.core.exchange_rates import get_rates, get_cache_info
+    rates = await get_rates()
+    return {
+        "base": "USD",
+        "rates": {
+            "XOF": rates.get("XOF"),
+            "CAD": rates.get("CAD"),
+            "EUR": rates.get("EUR"),
+            "GBP": rates.get("GBP"),
+        },
+        "cache": get_cache_info(),
+    }
+
+
+@router.get("/plans/convert/{currency}")
+async def get_plans_converted(currency: str):
+    """Plans avec prix convertis dans la devise demandée."""
+    from backend.app.core.exchange_rates import convert
+    currency = currency.upper()
+    if currency not in ("USD", "CAD", "XOF", "EUR", "GBP"):
+        raise HTTPException(400, "Devise non supportée")
+    result = {}
+    for key, plan in PLANS.items():
+        price_usd = plan.get("price_usd", 0)
+        converted = await convert(price_usd, "USD", currency)
+        result[key] = {
+            "label":    plan["label"],
+            "price":    converted,
+            "currency": currency,
+            "price_usd": price_usd,
+        }
+    return result
