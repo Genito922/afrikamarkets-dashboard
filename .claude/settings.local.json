@@ -22,7 +22,9 @@
       "Bash(grep:*)",
       "Bash(python3:*)",
       "Bash(find:*)",
-      "Bash(wc -l /c/Afrika_Banque_Project/brvm-analyzer/pages/*.py /c/Afrika_Banque_Project/brvm-analyzer/HOME.py)"
+      "Bash(wc -l /c/Afrika_Banque_Project/brvm-analyzer/pages/*.py /c/Afrika_Banque_Project/brvm-analyzer/HOME.py)",
+      "Bash(python:*)",
+      "Bash(pip freeze:*)"
     ]
   }
 }

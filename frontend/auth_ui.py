@@ -4,28 +4,38 @@ Afrika Markets Intelligence
 """
 import streamlit as st
 from datetime import datetime
-from frontend.auth_client import login, register, get_me, create_stripe_checkout, initiate_wave, initiate_orange
+from frontend.auth_client import login, register, get_me
 
 # Hiérarchie des plans
-PLAN_RANK = {"free": 0, "trial": 1, "starter": 2, "pro": 3, "expert": 4}
+PLAN_RANK = {"free": 0, "trial": 1, "starter": 2, "pro": 3, "expert": 4, "expert_premium": 5}
 
 PLAN_LABELS = {
-    "free":    "Gratuit",
-    "trial":   "Essai 14j",
-    "starter": "Starter — 229.99 USD/mois",
-    "pro":     "Pro — 74.99 USD/mois",
-    "expert":  "Expert — 4229.99 USD/mois",
+    "free":           "Gratuit",
+    "trial":          "Essai 14j",
+    "starter":        "Starter — 29.99 USD/mois",
+    "pro":            "Pro — 74.99 USD/mois",
+    "expert":         "Expert — 199.99 USD/mois",
+    "expert_premium": "Expert Premium — 299.99 USD/mois",
 }
 
 PLAN_COLORS = {
-    "free":    "#888888",
-    "trial":   "#00BFFF",
-    "starter": "#FFD700",
-    "pro":     "#00CC66",
-    "expert":  "#FF6B35",
+    "free":           "#888888",
+    "trial":          "#00BFFF",
+    "starter":        "#FFD700",
+    "pro":            "#00CC66",
+    "expert":         "#FF6B35",
+    "expert_premium": "#8B5CF6",
 }
 
 UPGRADE_PAGE_URL = "https://afrika-markets.streamlit.app"
+
+# Lemon Squeezy checkout URLs (CB uniquement)
+LS_CHECKOUT = {
+    "starter":        "https://afrika-markets-stock.lemonsqueezy.com/checkout/buy/737c9823-4248-488a-a736-e22820f23e18",
+    "pro":            "https://afrika-markets-stock.lemonsqueezy.com/checkout/buy/ae008a73-cf01-41e6-b602-270c9a943409",
+    "expert":         "https://afrika-markets-stock.lemonsqueezy.com/checkout/buy/12ca2955-7928-4a10-8266-59cfbcf13078",
+    "expert_premium": "https://afrika-markets-stock.lemonsqueezy.com/checkout/buy/d7672acb-6acb-40f0-b5eb-a4022f7fc7c0",
+}
 
 
 def _init_session():
@@ -73,8 +83,8 @@ def has_plan(min_plan: str) -> bool:
 
 def _handle_payment_return(fr: bool = True):
     """
-    Détecte le retour depuis Stripe/Wave/Orange et rafraîchit le profil utilisateur.
-    Stripe redirige vers ?payment=success&session_id=...
+    Détecte le retour depuis Lemon Squeezy et rafraîchit le profil utilisateur.
+    LS redirige vers ?payment=success après paiement CB.
     """
     params = st.query_params
     payment_status = params.get("payment")
@@ -246,12 +256,13 @@ def _render_upgrade_options(fr: bool = True):
     st.markdown("### " + ("Choisir un plan" if fr else "Choose a plan"))
 
     plans = [
-        ("starter", "Starter", "229.99 USD / mois", ["Dashboard complet", "Analyse titres", "Profil investisseur"]),
-        ("pro",     "Pro",     "74.99 USD / mois", ["Tout Starter", "Simulateur portefeuille", "Alertes prix"]),
-        ("expert",  "Expert",  "4229.99 USD / mois", ["Tout Pro", "War Room risques", "Export Excel"]),
+        ("starter",        "Starter",        "29.99 USD / mois",  ["Dashboard complet", "Analyse titres", "Profil investisseur"]),
+        ("pro",            "Pro",            "74.99 USD / mois",  ["Tout Starter", "Simulateur portefeuille", "Alertes prix"]),
+        ("expert",         "Expert",         "199.99 USD / mois", ["Tout Pro", "War Room risques", "Export Excel"]),
+        ("expert_premium", "Expert Premium", "299.99 USD / mois", ["Tout Expert", "SGI/OPCVM Intelligence", "Conseil personnalisé"]),
     ]
 
-    cols = st.columns(3)
+    cols = st.columns(4)
     for col, (plan_id, plan_name, price, features) in zip(cols, plans):
         color = PLAN_COLORS[plan_id]
         with col:
@@ -269,55 +280,28 @@ def _render_upgrade_options(fr: bool = True):
                 st.session_state["upgrading_plan"] = plan_id
                 st.rerun()
 
-    # Formulaire de paiement si un plan est sélectionné
+    # Bouton Lemon Squeezy si un plan est sélectionné
     if "upgrading_plan" in st.session_state:
         selected = st.session_state["upgrading_plan"]
+        ls_url   = LS_CHECKOUT.get(selected)
+        plan_label = PLAN_LABELS.get(selected, selected)
         st.markdown("---")
-        st.markdown(f"### {'Paiement — Plan' if fr else 'Payment — Plan'} {selected.capitalize()}")
+        if ls_url:
+            st.markdown(
+                f"""
+                <div style="text-align:center; padding:16px;">
+                    <a href="{ls_url}" target="_blank"
+                       style="background:#FFD700; color:#000; font-weight:700;
+                              padding:14px 36px; border-radius:8px; font-size:1.05em;
+                              text-decoration:none; display:inline-block;">
+                        💳 {"Payer par carte —" if fr else "Pay by card —"} {plan_label}
+                    </a>
+                    <p style="color:#aaa; font-size:0.82em; margin-top:10px;">
+                        {"Paiement sécurisé par Lemon Squeezy · CB Visa / Mastercard / Amex" if fr else
+                         "Secure payment by Lemon Squeezy · Visa / Mastercard / Amex"}
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-        method = st.radio(
-            "Méthode de paiement" if fr else "Payment method",
-            ["💳 Carte bancaire (Stripe)", "📱 Wave CI", "🟠 Orange Money CI"],
-            horizontal=True,
-        )
-
-        token = st.session_state.jwt_token
-
-        if method == "💳 Carte bancaire (Stripe)":
-            if st.button("Payer par carte" if fr else "Pay by card", type="primary"):
-                data, code = create_stripe_checkout(
-                    token, selected,
-                    success_url=UPGRADE_PAGE_URL,
-                    cancel_url=UPGRADE_PAGE_URL,
-                )
-                if code == 200:
-                    checkout_url = data.get("checkout_url")
-                    st.markdown(
-                        f'<meta http-equiv="refresh" content="0; url={checkout_url}">',
-                        unsafe_allow_html=True
-                    )
-                    st.info(f"[Cliquez ici pour payer]({checkout_url})")
-                else:
-                    st.error(data.get("detail", "Erreur Stripe"))
-
-        elif method == "📱 Wave CI":
-            phone = st.text_input("Numéro Wave (ex: +2250700000000)", key="wave_phone")
-            if st.button("Payer via Wave", type="primary"):
-                data, code = initiate_wave(token, selected, phone)
-                if code == 200:
-                    url = data.get("wave_launch_url")
-                    st.info(f"[Ouvrir Wave pour payer]({url})")
-                else:
-                    st.error(data.get("detail", "Erreur Wave"))
-
-        elif method == "🟠 Orange Money CI":
-            phone = st.text_input("Numéro Orange (ex: +2250700000000)", key="om_phone")
-            if st.button("Payer via Orange Money", type="primary"):
-                data, code = initiate_orange(token, selected, phone)
-                if code == 200:
-                    url = data.get("payment_url")
-                    st.info(f"[Ouvrir Orange Money pour payer]({url})")
-                else:
-                    st.error(data.get("detail", "Erreur Orange Money"))
-
-# expert_premium = Expert + services personnalisés

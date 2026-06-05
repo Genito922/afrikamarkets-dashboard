@@ -1,6 +1,6 @@
 """
 Page 6 — Analyse Graphique Technique
-Croisements MA 19/38/361 · MFI · RSI
+Croisements MA 16/19/246/361 · MFI · RSI
 Afrika Markets Intelligence
 """
 import streamlit as st
@@ -9,7 +9,7 @@ from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
 from data.brvm_scraper import get_actions
-from frontend.auth_ui import render_auth_sidebar, require_auth
+from frontend.auth_ui import render_auth_sidebar, require_auth, require_plan
 from frontend.auth_client import get_market_history
 from utils.i18n import t, get_lang
 
@@ -23,7 +23,7 @@ lang = get_lang()
 FR   = lang == "fr"
 
 render_auth_sidebar(fr=FR)
-require_auth(fr=FR)
+require_plan("starter", fr=FR)
 
 # ── Palette Afrika Markets ────────────────────────────────────
 C = {
@@ -36,8 +36,9 @@ C = {
     "blue":   "#00BFFF",
     "orange": "#FF6B35",
     "purple": "#A855F7",
+    "ma16":   "#00BFFF",
     "ma19":   "#00CC66",
-    "ma38":   "#FFD700",
+    "ma246":  "#FFD700",
     "ma361":  "#FF6B35",
     "rsi":    "#00BFFF",
     "mfi":    "#A855F7",
@@ -93,9 +94,9 @@ def detect_crossings(ma_fast: pd.Series, ma_slow: pd.Series) -> dict:
     return crosses
 
 
-def signal_global(rsi: float, mfi: float, ma19: float, ma38: float,
-                  ma361: float, lang: str = "fr") -> tuple:
-    """Génère un signal global pondéré."""
+def signal_global(rsi: float, mfi: float, ma16: float, ma19: float,
+                  ma246: float, ma361: float, lang: str = "fr") -> tuple:
+    """Génère un signal global pondéré sur 4 MAs + RSI + MFI."""
     score   = 0
     reasons = []
 
@@ -113,15 +114,23 @@ def signal_global(rsi: float, mfi: float, ma19: float, ma38: float,
     elif mfi > 80:
         score -= 2; reasons.append(t("mfi_overbought", lang))
 
-    if ma19 > ma38 > ma361:
-        score += 2; reasons.append(t("ma_bullish_aligned", lang))
-    elif ma19 < ma38 < ma361:
-        score -= 2; reasons.append(t("ma_bearish_aligned", lang))
+    # Alignement complet des 4 MAs
+    if ma16 > ma19 > ma246 > ma361:
+        score += 3; reasons.append(t("ma_bullish_aligned", lang))
+    elif ma16 < ma19 < ma246 < ma361:
+        score -= 3; reasons.append(t("ma_bearish_aligned", lang))
 
-    if ma19 > ma38:
+    # Signal court terme MA16/MA19
+    if ma16 > ma19:
         score += 1; reasons.append(t("ma19_above_ma38", lang))
     else:
         score -= 1; reasons.append(t("ma19_below_ma38", lang))
+
+    # Signal moyen terme MA19/MA246
+    if ma19 > ma246:
+        score += 1
+    else:
+        score -= 1
 
     if score >= 3:
         return t("sig_strong_buy", lang),    C["green"],  score, reasons
@@ -208,29 +217,36 @@ else:
     is_simulated = False
 
 # ── Calcul des indicateurs ────────────────────────────────────
+df_hist["ma16"]  = calc_ma(df_hist["cours"], 16)
 df_hist["ma19"]  = calc_ma(df_hist["cours"], 19)
-df_hist["ma38"]  = calc_ma(df_hist["cours"], 38)
+df_hist["ma246"] = calc_ma(df_hist["cours"], min(246, len(df_hist)))
 df_hist["ma361"] = calc_ma(df_hist["cours"], min(361, len(df_hist)))
 df_hist["rsi"]   = calc_rsi(df_hist["cours"], rsi_period)
 df_hist["mfi"]   = calc_mfi(df_hist, mfi_period)
 
-cross_19_38  = detect_crossings(df_hist["ma19"], df_hist["ma38"])
-cross_19_361 = detect_crossings(df_hist["ma19"], df_hist["ma361"])
-cross_38_361 = detect_crossings(df_hist["ma38"], df_hist["ma361"])
+cross_16_19   = detect_crossings(df_hist["ma16"],  df_hist["ma19"])
+cross_19_246  = detect_crossings(df_hist["ma19"],  df_hist["ma246"])
+cross_19_361  = detect_crossings(df_hist["ma19"],  df_hist["ma361"])
+cross_246_361 = detect_crossings(df_hist["ma246"], df_hist["ma361"])
 
 last = df_hist.iloc[-1]
 sig_label, sig_color, sig_score, sig_reasons = signal_global(
     rsi=last["rsi"]   if pd.notna(last["rsi"])  else 50,
     mfi=last["mfi"]   if pd.notna(last["mfi"])  else 50,
+    ma16=last["ma16"],
     ma19=last["ma19"],
-    ma38=last["ma38"],
+    ma246=last["ma246"],
     ma361=last["ma361"],
     lang=lang,
 )
 
 # ── Signal en haut ────────────────────────────────────────────
-total_crosses = (len(cross_19_38["golden"]) + len(cross_19_38["death"]) +
-                 len(cross_19_361["golden"]) + len(cross_19_361["death"]))
+total_crosses = (
+    len(cross_16_19["golden"])   + len(cross_16_19["death"]) +
+    len(cross_19_246["golden"])  + len(cross_19_246["death"]) +
+    len(cross_19_361["golden"])  + len(cross_19_361["death"]) +
+    len(cross_246_361["golden"]) + len(cross_246_361["death"])
+)
 
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric(t("global_signal", lang), sig_label)
@@ -284,16 +300,23 @@ fig.add_trace(go.Scatter(
 ), row=1, col=1)
 
 fig.add_trace(go.Scatter(
+    x=dates, y=df_hist["ma16"], name="MA 16",
+    line=dict(color=C["ma16"], width=1.2, dash="dot"),
+    hovertemplate="MA16: %{y:,.0f}<extra></extra>",
+), row=1, col=1)
+
+fig.add_trace(go.Scatter(
     x=dates, y=df_hist["ma19"], name="MA 19",
     line=dict(color=C["ma19"], width=1.5),
     hovertemplate="MA19: %{y:,.0f}<extra></extra>",
 ), row=1, col=1)
 
-fig.add_trace(go.Scatter(
-    x=dates, y=df_hist["ma38"], name="MA 38",
-    line=dict(color=C["ma38"], width=1.5, dash="dash"),
-    hovertemplate="MA38: %{y:,.0f}<extra></extra>",
-), row=1, col=1)
+if df_hist["ma246"].notna().sum() > 5:
+    fig.add_trace(go.Scatter(
+        x=dates, y=df_hist["ma246"], name="MA 246",
+        line=dict(color=C["ma246"], width=1.5, dash="dash"),
+        hovertemplate="MA246: %{y:,.0f}<extra></extra>",
+    ), row=1, col=1)
 
 if df_hist["ma361"].notna().sum() > 5:
     fig.add_trace(go.Scatter(
@@ -302,8 +325,33 @@ if df_hist["ma361"].notna().sum() > 5:
         hovertemplate="MA361: %{y:,.0f}<extra></extra>",
     ), row=1, col=1)
 
-# Marqueurs croisements MA19/MA38
-for idx in cross_19_38["golden"]:
+# Marqueurs croisements MA16/MA19 (court terme)
+for idx in cross_16_19["golden"]:
+    if idx < len(df_hist):
+        fig.add_trace(go.Scatter(
+            x=[dates.iloc[idx]], y=[df_hist["cours"].iloc[idx]],
+            mode="markers+text",
+            marker=dict(symbol="triangle-up", size=12, color=C["blue"], line=dict(color="white", width=1)),
+            text=["GC"], textposition="top center",
+            textfont=dict(color=C["blue"], size=8),
+            name="Golden Cross 16/19", showlegend=False,
+            hovertemplate="<b>Golden Cross 16/19</b><br>%{x|%d %b %Y}<extra></extra>",
+        ), row=1, col=1)
+
+for idx in cross_16_19["death"]:
+    if idx < len(df_hist):
+        fig.add_trace(go.Scatter(
+            x=[dates.iloc[idx]], y=[df_hist["cours"].iloc[idx]],
+            mode="markers+text",
+            marker=dict(symbol="triangle-down", size=12, color=C["orange"], line=dict(color="white", width=1)),
+            text=["DC"], textposition="bottom center",
+            textfont=dict(color=C["orange"], size=8),
+            name="Death Cross 16/19", showlegend=False,
+            hovertemplate="<b>Death Cross 16/19</b><br>%{x|%d %b %Y}<extra></extra>",
+        ), row=1, col=1)
+
+# Marqueurs croisements MA19/MA246 (moyen terme)
+for idx in cross_19_246["golden"]:
     if idx < len(df_hist):
         fig.add_trace(go.Scatter(
             x=[dates.iloc[idx]], y=[df_hist["cours"].iloc[idx]],
@@ -311,11 +359,11 @@ for idx in cross_19_38["golden"]:
             marker=dict(symbol="triangle-up", size=14, color=C["green"], line=dict(color="white", width=1)),
             text=["GC"], textposition="top center",
             textfont=dict(color=C["green"], size=9),
-            name="Golden Cross 19/38", showlegend=False,
-            hovertemplate="<b>Golden Cross 19/38</b><br>%{x|%d %b %Y}<extra></extra>",
+            name="Golden Cross 19/246", showlegend=False,
+            hovertemplate="<b>Golden Cross 19/246</b><br>%{x|%d %b %Y}<extra></extra>",
         ), row=1, col=1)
 
-for idx in cross_19_38["death"]:
+for idx in cross_19_246["death"]:
     if idx < len(df_hist):
         fig.add_trace(go.Scatter(
             x=[dates.iloc[idx]], y=[df_hist["cours"].iloc[idx]],
@@ -323,10 +371,11 @@ for idx in cross_19_38["death"]:
             marker=dict(symbol="triangle-down", size=14, color=C["red"], line=dict(color="white", width=1)),
             text=["DC"], textposition="bottom center",
             textfont=dict(color=C["red"], size=9),
-            name="Death Cross 19/38", showlegend=False,
-            hovertemplate="<b>Death Cross 19/38</b><br>%{x|%d %b %Y}<extra></extra>",
+            name="Death Cross 19/246", showlegend=False,
+            hovertemplate="<b>Death Cross 19/246</b><br>%{x|%d %b %Y}<extra></extra>",
         ), row=1, col=1)
 
+# Marqueurs croisements MA19/MA361 (long terme — étoiles)
 for idx in cross_19_361["golden"]:
     if idx < len(df_hist):
         fig.add_trace(go.Scatter(
@@ -425,18 +474,21 @@ st.subheader(t("crossing_history", lang))
 
 cross_rows = []
 labels = {
-    ("19", "38",  "golden"): ("MA19 ✕ MA38",  "🟢 Golden Cross", C["green"]),
-    ("19", "38",  "death"):  ("MA19 ✕ MA38",  "🔴 Death Cross",  C["red"]),
+    ("16", "19",  "golden"): ("MA16 ✕ MA19",  "🔵 Golden Cross", C["blue"]),
+    ("16", "19",  "death"):  ("MA16 ✕ MA19",  "🟠 Death Cross",  C["orange"]),
+    ("19", "246", "golden"): ("MA19 ✕ MA246", "🟢 Golden Cross", C["green"]),
+    ("19", "246", "death"):  ("MA19 ✕ MA246", "🔴 Death Cross",  C["red"]),
     ("19", "361", "golden"): ("MA19 ✕ MA361", "🟢 Golden Cross", C["green"]),
     ("19", "361", "death"):  ("MA19 ✕ MA361", "🔴 Death Cross",  C["red"]),
-    ("38", "361", "golden"): ("MA38 ✕ MA361", "🟢 Golden Cross", C["green"]),
-    ("38", "361", "death"):  ("MA38 ✕ MA361", "🔴 Death Cross",  C["red"]),
+    ("246","361", "golden"): ("MA246 ✕ MA361","🟢 Golden Cross", C["green"]),
+    ("246","361", "death"):  ("MA246 ✕ MA361","🔴 Death Cross",  C["red"]),
 }
 
 all_crosses = [
-    (cross_19_38,  "19", "38"),
-    (cross_19_361, "19", "361"),
-    (cross_38_361, "38", "361"),
+    (cross_16_19,   "16", "19"),
+    (cross_19_246,  "19", "246"),
+    (cross_19_361,  "19", "361"),
+    (cross_246_361, "246","361"),
 ]
 
 for cross_dict, fast, slow in all_crosses:
@@ -517,12 +569,13 @@ with col_mfi_int:
     """, unsafe_allow_html=True)
 
 with col_ma_int:
+    ma16_v  = last["ma16"]
     ma19_v  = last["ma19"]
-    ma38_v  = last["ma38"]
+    ma246_v = last["ma246"]
     ma361_v = last["ma361"]
     trend = (
-        t("trend_bullish", lang) if ma19_v > ma38_v > ma361_v else
-        t("trend_bearish", lang) if ma19_v < ma38_v < ma361_v else
+        t("trend_bullish", lang) if ma16_v > ma19_v > ma246_v > ma361_v else
+        t("trend_bearish", lang) if ma16_v < ma19_v < ma246_v < ma361_v else
         t("trend_mixed", lang)
     )
     st.markdown(f"""
@@ -531,10 +584,13 @@ with col_ma_int:
             {t("moving_averages", lang)}
         </h4>
         <p style='color:#ccc; margin:2px 0; font-size:0.9em;'>
+            <span style='color:{C["ma16"]};'>■</span> MA16 : <b>{ma16_v:,.0f} F</b>
+        </p>
+        <p style='color:#ccc; margin:2px 0; font-size:0.9em;'>
             <span style='color:{C["ma19"]};'>■</span> MA19 : <b>{ma19_v:,.0f} F</b>
         </p>
         <p style='color:#ccc; margin:2px 0; font-size:0.9em;'>
-            <span style='color:{C["ma38"]};'>■</span> MA38 : <b>{ma38_v:,.0f} F</b>
+            <span style='color:{C["ma246"]};'>■</span> MA246 : <b>{ma246_v:,.0f} F</b>
         </p>
         <p style='color:#ccc; margin:2px 0; font-size:0.9em;'>
             <span style='color:{C["ma361"]};'>■</span> MA361 : <b>{ma361_v:,.0f} F</b>

@@ -15,10 +15,11 @@ def gen_uuid():
 
 
 class PlanEnum(str, enum.Enum):
-    FREE    = "free"
-    STARTER = "starter"   # 9.99 CAD/mois
-    PRO     = "pro"       # 24.99 CAD/mois
-    EXPERT  = "expert"    # 49.99 CAD/mois
+    FREE            = "free"
+    STARTER         = "starter"         # 29.99 USD/mois
+    PRO             = "pro"             # 74.99 USD/mois
+    EXPERT          = "expert"          # 199.99 USD/mois
+    EXPERT_PREMIUM  = "expert_premium"  # 299.99 USD/mois
 
 
 class StatusEnum(str, enum.Enum):

@@ -91,34 +91,6 @@ def create_stripe_checkout(jwt_token, plan, success_url, cancel_url):
         return _conn_error()
 
 
-def initiate_wave(jwt_token, plan, phone):
-    try:
-        r = requests.post(
-            f"{_api_url()}/payments/wave/initiate",
-            json={"user_id": st.session_state.get("user", {}).get("id"),
-                  "plan": plan, "phone": phone},
-            headers=_headers(jwt_token),
-            timeout=15,
-        )
-        return _safe_json(r)
-    except requests.exceptions.ConnectionError:
-        return _conn_error()
-
-
-def initiate_orange(jwt_token, plan, phone):
-    try:
-        r = requests.post(
-            f"{_api_url()}/payments/orange/initiate",
-            json={"user_id": st.session_state.get("user", {}).get("id"),
-                  "plan": plan, "phone": phone},
-            headers=_headers(jwt_token),
-            timeout=15,
-        )
-        return _safe_json(r)
-    except requests.exceptions.ConnectionError:
-        return _conn_error()
-
-
 # ── Market Data ───────────────────────────────────────────────
 
 def get_market_actions():
