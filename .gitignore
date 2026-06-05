@@ -5,3 +5,4 @@ __pycache__/
 brvm_analyzer.db
 site/
 .streamlit/secrets.toml
+.vercel

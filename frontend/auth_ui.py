@@ -12,9 +12,9 @@ PLAN_RANK = {"free": 0, "trial": 1, "starter": 2, "pro": 3, "expert": 4}
 PLAN_LABELS = {
     "free":    "Gratuit",
     "trial":   "Essai 14j",
-    "starter": "Starter — 9.99 CAD/mois",
-    "pro":     "Pro — 24.99 CAD/mois",
-    "expert":  "Expert — 49.99 CAD/mois",
+    "starter": "Starter — 229.99 USD/mois",
+    "pro":     "Pro — 74.99 USD/mois",
+    "expert":  "Expert — 4229.99 USD/mois",
 }
 
 PLAN_COLORS = {
@@ -246,9 +246,9 @@ def _render_upgrade_options(fr: bool = True):
     st.markdown("### " + ("Choisir un plan" if fr else "Choose a plan"))
 
     plans = [
-        ("starter", "Starter", "9.99 CAD / mois", ["Dashboard complet", "Analyse titres", "Profil investisseur"]),
-        ("pro",     "Pro",     "24.99 CAD / mois", ["Tout Starter", "Simulateur portefeuille", "Alertes prix"]),
-        ("expert",  "Expert",  "49.99 CAD / mois", ["Tout Pro", "War Room risques", "Export Excel"]),
+        ("starter", "Starter", "229.99 USD / mois", ["Dashboard complet", "Analyse titres", "Profil investisseur"]),
+        ("pro",     "Pro",     "74.99 USD / mois", ["Tout Starter", "Simulateur portefeuille", "Alertes prix"]),
+        ("expert",  "Expert",  "4229.99 USD / mois", ["Tout Pro", "War Room risques", "Export Excel"]),
     ]
 
     cols = st.columns(3)
@@ -319,3 +319,5 @@ def _render_upgrade_options(fr: bool = True):
                     st.info(f"[Ouvrir Orange Money pour payer]({url})")
                 else:
                     st.error(data.get("detail", "Erreur Orange Money"))
+
+# expert_premium = Expert + services personnalisés

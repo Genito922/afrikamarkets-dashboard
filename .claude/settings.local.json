@@ -6,7 +6,23 @@
       "Bash(tasklist /FI \"PID eq 11228\")",
       "Bash(tasklist /FI \"PID eq 6240\")",
       "Bash(powershell:*)",
-      "Bash(sqlite3 /c/Afrika_Banque_Project/brvm-analyzer/brvm_analyzer.db \".schema\")"
+      "Bash(sqlite3 /c/Afrika_Banque_Project/brvm-analyzer/brvm_analyzer.db \".schema\")",
+      "Bash(npm install:*)",
+      "Bash(npm --version)",
+      "Bash(npm config:*)",
+      "Bash(npm run:*)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(winget install:*)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/GitHub CLI\")",
+      "Bash(gh auth:*)",
+      "WebFetch(domain:sentinel-lccafrika.space)",
+      "Bash(npx vercel:*)",
+      "Bash(curl -sI https://sentinel-lccafrika.space)",
+      "Bash(curl:*)",
+      "Bash(grep:*)",
+      "Bash(python3:*)",
+      "Bash(find:*)",
+      "Bash(wc -l /c/Afrika_Banque_Project/brvm-analyzer/pages/*.py /c/Afrika_Banque_Project/brvm-analyzer/HOME.py)"
     ]
   }
 }

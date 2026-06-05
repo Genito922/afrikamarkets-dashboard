@@ -24,11 +24,51 @@ WAVE_API_KEY          = os.getenv("WAVE_API_KEY", "")
 ORANGE_API_KEY        = os.getenv("ORANGE_API_KEY", "")
 FRONTEND_URL          = os.getenv("FRONTEND_URL", "https://afrika-markets.streamlit.app")
 
+# Taux de change (mis à jour manuellement — 1 USD ≈ 600 XOF, 1 CAD ≈ 440 XOF)
+USD_TO_XOF = 600
+CAD_TO_XOF = 440
+
+def _xof(usd: float) -> int:
+    """Conversion USD → XOF arrondie au millier."""
+    return round(usd * USD_TO_XOF / 1000) * 1000
+
 PLANS = {
-    "starter": {"price_cad": 9.99,  "price_fcfa": 4500,  "label": "Starter"},
-    "pro":     {"price_cad": 24.99, "price_fcfa": 11000, "label": "Pro"},
-    "expert":  {"price_cad": 49.99, "price_fcfa": 22000, "label": "Expert"},
+    "starter": {
+        "price_usd":  29.99,
+        "price_cad":  29.99,
+        "price_fcfa": _xof(29.99),   # ~18 000 XOF
+        "label":      "Starter",
+        "paddle_id":  os.getenv("PADDLE_PLAN_STARTER", ""),
+    },
+    "pro": {
+        "price_usd":  74.99,
+        "price_cad":  74.99,
+        "price_fcfa": _xof(74.99),   # ~45 000 XOF
+        "label":      "Pro",
+        "paddle_id":  os.getenv("PADDLE_PLAN_PRO", ""),
+    },
+    "expert": {
+        "price_usd":  199.99,
+        "price_cad":  299.99,
+        "price_fcfa": _xof(199.99),  # ~120 000 XOF
+        "label":      "Expert",
+        "paddle_id":  os.getenv("PADDLE_PLAN_EXPERT", ""),
+    },
+    "expert_premium": {
+        "price_usd":  199.99,
+        "price_cad":  299.99,
+        "price_fcfa": _xof(199.99),  # ~120 000 XOF
+        "label":      "Expert Premium",
+        "paddle_id":  os.getenv("PADDLE_PLAN_EXPERT_PREMIUM", ""),
+    },
 }
+
+def get_price(plan: str, currency: str = "USD") -> float:
+    """Retourne le prix dans la devise demandée."""
+    p = PLANS.get(plan, {})
+    if currency == "XOF":  return float(p.get("price_fcfa", 0))
+    if currency == "CAD":  return float(p.get("price_cad",  0))
+    return float(p.get("price_usd", 0))  # USD par défaut
 
 
 # ── Schémas ──────────────────────────────────────────────────
@@ -66,7 +106,7 @@ async def stripe_checkout(req: StripeCheckoutRequest, db: AsyncSession = Depends
             "price_data": {
                 "currency": "cad",
                 "product_data": {"name": f"Afrika Markets Intelligence — {plan_info['label']}"},
-                "unit_amount": int(plan_info["price_cad"] * 100),
+                "unit_amount": int(plan_info.get("price_usd", plan_info.get("price_cad", 0)) * 100),
                 "recurring": {"interval": "month"},
             },
             "quantity": 1,
@@ -137,7 +177,7 @@ async def wave_payment(req: WavePaymentRequest, db: AsyncSession = Depends(get_d
             "https://api.wave.com/v1/checkout/sessions",
             headers={"Authorization": f"Bearer {WAVE_API_KEY}"},
             json={
-                "amount":           str(int(plan_info["price_fcfa"])),
+                "amount":           str(int(plan_info.get("price_fcfa", 0))),
                 "currency":         "XOF",
                 "error_url":        f"{FRONTEND_URL}?payment=error",
                 "success_url":      f"{FRONTEND_URL}?payment=success",
@@ -212,7 +252,7 @@ async def orange_payment(req: OrangeMoneyRequest, db: AsyncSession = Depends(get
                 "merchant_key": os.getenv("ORANGE_MERCHANT_KEY", ""),
                 "currency":     "OUV",
                 "order_id":     order_id,
-                "amount":       int(plan_info["price_fcfa"]),
+                "amount":       int(plan_info.get("price_fcfa", 0)),
                 "return_url":   f"{FRONTEND_URL}?payment=success",
                 "cancel_url":   f"{FRONTEND_URL}?payment=cancelled",
                 "notif_url":    f"{os.getenv('API_BASE_URL', '')}/payments/orange/webhook",
@@ -259,3 +299,36 @@ async def orange_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             await generate_licence(user_id=payment.user_id, plan=payment.plan, db=db)
 
     return {"received": True}
+
+
+# ── Endpoint public — liste des plans ──────────────────────
+
+@router.get("/plans")
+async def get_plans():
+    """Retourne les plans avec prix dans toutes les devises."""
+    return {
+        key: {
+            "label":      p["label"],
+            "price_usd":  p["price_usd"],
+            "price_cad":  p["price_cad"],
+            "price_xof":  p["price_fcfa"],
+            "price_fcfa": p["price_fcfa"],
+        }
+        for key, p in PLANS.items()
+    }
+
+
+@router.get("/plans/{currency}")
+async def get_plans_currency(currency: str):
+    """Plans avec prix dans une devise spécifique (USD, CAD, XOF)."""
+    currency = currency.upper()
+    if currency not in ("USD", "CAD", "XOF"):
+        raise HTTPException(400, "Devise non supportée. Utilisez USD, CAD ou XOF.")
+    return {
+        key: {
+            "label": p["label"],
+            "price": get_price(key, currency),
+            "currency": currency,
+        }
+        for key, p in PLANS.items()
+    }
