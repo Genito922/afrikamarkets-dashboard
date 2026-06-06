@@ -303,6 +303,18 @@ def _mfi(prices: list, opens: list, volumes: list, period: int = 14) -> list:
     return result
 
 
+def _yf_session():
+    """Session requests avec User-Agent navigateur pour éviter le rate-limit Yahoo Finance."""
+    import requests as _req
+    s = _req.Session()
+    s.headers["User-Agent"] = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    )
+    return s
+
+
 @router.get("/international/forex/xof")
 async def get_forex_xof():
     """Taux EUR/XOF (parité fixe BCEAO) + USD/XOF + CAD/XOF dérivés via yfinance."""
@@ -310,22 +322,13 @@ async def get_forex_xof():
     eurusd, usdcad = 1.08, 1.36  # fallback conservatif
     try:
         import yfinance as yf
-        df_fx = yf.download(
-            "EURUSD=X USDCAD=X", period="5d",
-            auto_adjust=True, progress=False, threads=False,
-        )
-        if not df_fx.empty:
-            close = df_fx["Close"] if "Close" in df_fx.columns else df_fx
-            if hasattr(close.columns, "levels"):
-                eu = close["EURUSD=X"].dropna()
-                uc = close["USDCAD=X"].dropna()
-            else:
-                eu = close.iloc[:, 0].dropna()
-                uc = close.iloc[:, 1].dropna()
-            if len(eu):
-                eurusd = float(eu.iloc[-1])
-            if len(uc):
-                usdcad = float(uc.iloc[-1])
+        sess = _yf_session()
+        eu_df = yf.Ticker("EURUSD=X", session=sess).history(period="5d", auto_adjust=True)
+        uc_df = yf.Ticker("USDCAD=X", session=sess).history(period="5d", auto_adjust=True)
+        if not eu_df.empty:
+            eurusd = float(eu_df["Close"].dropna().iloc[-1])
+        if not uc_df.empty:
+            usdcad = float(uc_df["Close"].dropna().iloc[-1])
     except Exception:
         pass
 
@@ -346,15 +349,10 @@ async def get_international_ticker(
     """OHLCV + indicateurs techniques (MA/RSI/MFI) pour n'importe quel ticker yfinance."""
     try:
         import yfinance as yf
-        df = yf.download(
-            ticker, period=f"{days}d",
-            auto_adjust=True, progress=False, threads=False,
-        )
+        sess = _yf_session()
+        df = yf.Ticker(ticker, session=sess).history(period=f"{days}d", auto_adjust=True)
         if df.empty:
-            raise HTTPException(404, detail=f"Pas de données pour {ticker}")
-
-        if hasattr(df.columns, "levels"):
-            df.columns = df.columns.droplevel(1)
+            raise HTTPException(503, detail=f"Données indisponibles pour {ticker} (rate-limit Yahoo Finance)")
 
         df = df.dropna(subset=["Close"])
         prices  = [float(v) for v in df["Close"]]
