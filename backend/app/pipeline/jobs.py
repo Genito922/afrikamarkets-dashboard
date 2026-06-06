@@ -259,8 +259,12 @@ async def job_prefetch_international() -> None:
             await asyncio.sleep(3)   # pause anti rate-limit entre chaque ticker
 
         except Exception as exc:
+            import traceback
             ko += 1
-            logger.error("[IntlFetch] ✗ %s — %s: %s", ticker, type(exc).__name__, exc)
+            logger.error(
+                "[IntlFetch] ✗ %s — %s: %s\n%s",
+                ticker, type(exc).__name__, exc, traceback.format_exc()
+            )
             await asyncio.sleep(3)
 
     logger.info("[IntlFetch] Terminé — %d OK / %d KO", ok, ko)
