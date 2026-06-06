@@ -313,22 +313,34 @@ _YF_CACHE: dict = {}
 _CACHE_TTL = 4 * 3600   # 4 heures
 
 
-def _yf_session():
-    """Session requests avec User-Agent navigateur pour contourner le rate-limit Yahoo Finance."""
-    import requests as _req
-    s = _req.Session()
-    s.headers["User-Agent"] = (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    )
-    return s
+class _TimeoutSession:
+    """Wrapper requests.Session avec timeout fixe et User-Agent navigateur."""
+    def __init__(self, timeout: int = 10):
+        import requests as _req
+        self._s = _req.Session()
+        self._s.headers["User-Agent"] = (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        )
+        self._timeout = timeout
+
+    def get(self, url, **kwargs):
+        kwargs.setdefault("timeout", self._timeout)
+        return self._s.get(url, **kwargs)
+
+    def post(self, url, **kwargs):
+        kwargs.setdefault("timeout", self._timeout)
+        return self._s.post(url, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._s, name)
 
 
 def _yf_fetch(ticker: str, period: str):
-    """Télécharge l'historique via yf.Ticker avec session navigateur."""
+    """Télécharge l'historique via yf.Ticker avec session navigateur + timeout 10s."""
     import yfinance as yf
-    sess = _yf_session()
+    sess = _TimeoutSession(timeout=10)
     df = yf.Ticker(ticker, session=sess).history(period=period, auto_adjust=True)
     return df
 
