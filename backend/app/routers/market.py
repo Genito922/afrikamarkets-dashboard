@@ -130,6 +130,89 @@ async def get_market_summary(db: AsyncSession = Depends(get_db)):
     }
 
 
+@router.get("/top5")
+async def get_top5(db: AsyncSession = Depends(get_db)):
+    """Top 5 hausses et baisses du jour."""
+    latest_row = await db.execute(
+        select(BrvmAction.date).order_by(desc(BrvmAction.date)).limit(1)
+    )
+    latest_date = latest_row.scalar_one_or_none()
+    if not latest_date:
+        return {"date": None, "top5": [], "flop5": []}
+
+    result = await db.execute(
+        select(BrvmAction).where(BrvmAction.date == latest_date)
+    )
+    actions = result.scalars().all()
+    sorted_asc  = sorted(actions, key=lambda a: a.variation or 0)
+    sorted_desc = sorted(actions, key=lambda a: a.variation or 0, reverse=True)
+
+    def fmt(a):
+        return {"symbole": a.symbole, "nom": a.nom, "secteur": a.secteur,
+                "cours": a.cours, "variation": a.variation, "volume": a.volume}
+
+    return {
+        "date":  str(latest_date),
+        "top5":  [fmt(a) for a in sorted_desc[:5]],
+        "flop5": [fmt(a) for a in sorted_asc[:5]],
+    }
+
+
+@router.get("/sectors")
+async def get_sectors(db: AsyncSession = Depends(get_db)):
+    """Performance sectorielle agrégée (indices sectoriels + stats actions)."""
+    from backend.app.models.market_models import BrvmIndex
+
+    # Indices sectoriels
+    latest_idx = await db.execute(
+        select(BrvmIndex.date).order_by(desc(BrvmIndex.date)).limit(1)
+    )
+    latest_idx_date = latest_idx.scalar_one_or_none()
+    sector_indices = []
+    if latest_idx_date:
+        idx_res = await db.execute(
+            select(BrvmIndex).where(BrvmIndex.date == latest_idx_date, BrvmIndex.type == "sectoriel")
+        )
+        for idx in idx_res.scalars().all():
+            sector_indices.append({
+                "nom": idx.nom.replace("BRVM - ", "").replace("BRVM – ", "").replace("BRVM-", ""),
+                "cloture": idx.cloture, "variation": idx.variation, "var_ytd": idx.var_ytd,
+            })
+
+    # Stats par secteur depuis les actions
+    latest_act = await db.execute(
+        select(BrvmAction.date).order_by(desc(BrvmAction.date)).limit(1)
+    )
+    latest_act_date = latest_act.scalar_one_or_none()
+    sector_stats: dict = {}
+    if latest_act_date:
+        act_res = await db.execute(
+            select(BrvmAction).where(BrvmAction.date == latest_act_date)
+        )
+        for a in act_res.scalars().all():
+            sec = a.secteur or "Autre"
+            if sec not in sector_stats:
+                sector_stats[sec] = {"secteur": sec, "nb_titres": 0, "volume_total": 0, "variations": []}
+            sector_stats[sec]["nb_titres"] += 1
+            sector_stats[sec]["volume_total"] += a.volume or 0
+            sector_stats[sec]["variations"].append(a.variation or 0)
+
+    aggregated = []
+    for sec, d in sector_stats.items():
+        vl = d["variations"]
+        aggregated.append({
+            "secteur": sec,
+            "nb_titres": d["nb_titres"],
+            "volume_total": d["volume_total"],
+            "variation_moy": round(sum(vl) / len(vl), 2) if vl else 0,
+            "nb_up":   sum(1 for v in vl if v > 0),
+            "nb_down": sum(1 for v in vl if v < 0),
+        })
+
+    return {"date": str(latest_act_date) if latest_act_date else None,
+            "sector_indices": sector_indices, "sector_stats": aggregated}
+
+
 @router.post("/scrape")
 async def trigger_scrape_manual():
     """Déclenche un scraping immédiat (usage admin / dev)."""

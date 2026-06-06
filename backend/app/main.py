@@ -8,7 +8,7 @@ import os
 
 from backend.app.core.database import init_db
 from backend.app.routers import auth, licences, payments
-from backend.app.routers import market
+from backend.app.routers import market, analysis, intel
 
 
 @asynccontextmanager
@@ -48,6 +48,8 @@ app.include_router(auth.router)
 app.include_router(licences.router)
 app.include_router(payments.router)
 app.include_router(market.router)
+app.include_router(analysis.router)
+app.include_router(intel.router)
 
 
 @app.get("/health")
