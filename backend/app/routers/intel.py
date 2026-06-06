@@ -8,10 +8,16 @@ GET /intel/plans                      → description des plans tarifaires
 GET /intel/international/forex/xof    → taux EUR/XOF (fixe) + USD/XOF + CAD/XOF
 GET /intel/international/{ticker}     → OHLCV + indicateurs techniques yfinance
 """
+import json
 import logging
-from fastapi import APIRouter, HTTPException, Query
+from datetime import date, timedelta
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import Optional
+
+from backend.app.core.database import get_db
+from backend.app.models.market_models import IntlMarketCache
 
 logger = logging.getLogger(__name__)
 
@@ -306,13 +312,6 @@ def _mfi(prices: list, opens: list, volumes: list, period: int = 14) -> list:
     return result
 
 
-import time as _time
-
-# Cache in-memory TTL 4h — clé (ticker, days) → (timestamp, payload)
-_YF_CACHE: dict = {}
-_CACHE_TTL = 4 * 3600   # 4 heures
-
-
 class _TimeoutSession:
     """Wrapper requests.Session avec timeout fixe et User-Agent navigateur."""
     def __init__(self, timeout: int = 10):
@@ -346,64 +345,83 @@ def _yf_fetch(ticker: str, period: str):
 
 
 @router.get("/international/forex/xof")
-async def get_forex_xof():
-    """Taux EUR/XOF (parité fixe BCEAO) + USD/XOF + CAD/XOF dérivés via yfinance."""
+async def get_forex_xof(db: AsyncSession = Depends(get_db)):
+    """Taux EUR/XOF (parité fixe BCEAO) + USD/XOF + CAD/XOF.
+    Source principale : table intl_market_cache (pré-fetchée toutes les 6h).
+    Fallback : yfinance live si cache manquant.
+    """
     EUR_XOF = 655.957
-    cache_key = ("__forex_xof__", 0)
-    now = _time.time()
+    eurusd, usdcad = 1.08, 1.36  # valeurs par défaut conservatrices
 
-    # Cache hit
-    if cache_key in _YF_CACHE and now - _YF_CACHE[cache_key][0] < _CACHE_TTL:
-        return _YF_CACHE[cache_key][1]
+    # 1. Lire depuis le cache DB
+    eu_row = await db.get(IntlMarketCache, "EURUSD=X")
+    uc_row = await db.get(IntlMarketCache, "USDCAD=X")
 
-    eurusd, usdcad = 1.08, 1.36  # fallback conservatif
-    try:
-        eu_df = _yf_fetch("EURUSD=X", "5d")
-        uc_df = _yf_fetch("USDCAD=X", "5d")
-        if not eu_df.empty:
-            eurusd = float(eu_df["Close"].dropna().iloc[-1])
-        if not uc_df.empty:
-            usdcad = float(uc_df["Close"].dropna().iloc[-1])
-    except Exception as exc:
-        logger.warning("[forex/xof] yfinance error (%s) — fallback rates", exc)
-        # Retourner le cache périmé si disponible
-        if cache_key in _YF_CACHE:
-            return _YF_CACHE[cache_key][1]
+    if eu_row and uc_row:
+        try:
+            eu_data = json.loads(eu_row.data_json)
+            uc_data = json.loads(uc_row.data_json)
+            eurusd  = eu_data["last"]["cours"]
+            usdcad  = uc_data["last"]["cours"]
+        except Exception:
+            pass
+    else:
+        # 2. Fallback live yfinance (uniquement si cache vide)
+        try:
+            eu_df = _yf_fetch("EURUSD=X", "5d")
+            uc_df = _yf_fetch("USDCAD=X", "5d")
+            if not eu_df.empty:
+                eurusd = float(eu_df["Close"].dropna().iloc[-1])
+            if not uc_df.empty:
+                usdcad = float(uc_df["Close"].dropna().iloc[-1])
+        except Exception as exc:
+            logger.warning("[forex/xof] fallback yfinance échoué : %s", exc)
 
-    result = {
+    return {
         "eur_xof": EUR_XOF,
         "usd_xof": round(EUR_XOF / eurusd, 2),
         "cad_xof": round(EUR_XOF / eurusd / usdcad, 2),
         "eurusd":  round(eurusd, 4),
         "usdcad":  round(usdcad, 4),
     }
-    _YF_CACHE[cache_key] = (now, result)
-    return result
 
 
 @router.get("/international/{ticker:path}")
 async def get_international_ticker(
     ticker: str,
     days: int = Query(default=90, ge=30, le=365),
+    db: AsyncSession = Depends(get_db),
 ):
-    """OHLCV + indicateurs techniques (MA/RSI/MFI) pour n'importe quel ticker yfinance."""
-    cache_key = (ticker, days)
-    now = _time.time()
+    """OHLCV + MA/RSI/MFI pour un ticker.
+    Source principale : table intl_market_cache (pré-fetchée toutes les 6h).
+    Fallback : yfinance live si cache manquant.
+    """
+    # 1. Chercher dans le cache DB
+    cached = await db.get(IntlMarketCache, ticker)
+    if cached:
+        try:
+            payload = json.loads(cached.data_json)
+            cutoff  = str(date.today() - timedelta(days=days))
+            sliced  = [row for row in payload["data"] if row["date"] >= cutoff]
+            if sliced:
+                return {
+                    "ticker":     ticker,
+                    "days":       days,
+                    "count":      len(sliced),
+                    "data":       sliced,
+                    "last":       payload["last"],
+                    "cached_at":  cached.fetched_at.isoformat(),
+                }
+        except Exception as exc:
+            logger.warning("[international] %s — erreur lecture cache DB : %s", ticker, exc)
 
-    # Cache hit (< 4h)
-    if cache_key in _YF_CACHE and now - _YF_CACHE[cache_key][0] < _CACHE_TTL:
-        return _YF_CACHE[cache_key][1]
-
+    # 2. Fallback live yfinance
     try:
         df = _yf_fetch(ticker, f"{days}d")
         if df.empty:
-            # Retourner le cache périmé si disponible
-            if cache_key in _YF_CACHE:
-                logger.warning("[international] %s — df vide, fallback cache périmé", ticker)
-                return _YF_CACHE[cache_key][1]
-            raise HTTPException(503, detail=f"Données indisponibles pour {ticker} — réessayez dans quelques minutes")
+            raise HTTPException(503, detail=f"Données indisponibles pour {ticker} — cache en cours de population (réessayez dans 2 min)")
 
-        df = df.dropna(subset=["Close"])
+        df      = df.dropna(subset=["Close"])
         prices  = [float(v) for v in df["Close"]]
         opens   = [float(v) for v in df["Open"]]
         volumes = [float(v) for v in df["Volume"]]
@@ -448,10 +466,7 @@ async def get_international_ticker(
                 score += 1; reasons.append("MA16 > MA19 (haussier court terme)")
             else:
                 score -= 1; reasons.append("MA16 < MA19 (baissier court terme)")
-            if last["ma19"] > last["ma246"]:
-                score += 1
-            else:
-                score -= 1
+            score += 1 if last["ma19"] > last["ma246"] else -1
 
         if score >= 3:    sig_label, sig_color = "Achat fort",    "#00CC66"
         elif score >= 1:  sig_label, sig_color = "Achat modéré",  "#FFD700"
@@ -459,7 +474,7 @@ async def get_international_ticker(
         elif score >= -2: sig_label, sig_color = "Vente modérée", "#FF6B35"
         else:             sig_label, sig_color = "Vente forte",   "#FF4444"
 
-        result = {
+        return {
             "ticker": ticker,
             "days":   days,
             "count":  n,
@@ -467,15 +482,9 @@ async def get_international_ticker(
             "last":   {**last, "label": sig_label, "color": sig_color,
                        "score": score, "reasons": reasons},
         }
-        _YF_CACHE[cache_key] = (now, result)
-        return result
 
     except HTTPException:
         raise
     except Exception as exc:
         logger.error("[international] %s — %s: %s", ticker, type(exc).__name__, exc)
-        # Fallback : retourner le cache périmé plutôt qu'une erreur
-        if cache_key in _YF_CACHE:
-            logger.warning("[international] %s — fallback cache périmé", ticker)
-            return _YF_CACHE[cache_key][1]
-        raise HTTPException(503, detail="Données temporairement indisponibles — Yahoo Finance rate-limit. Réessayez dans quelques minutes.")
+        raise HTTPException(503, detail="Données temporairement indisponibles — cache en cours de population. Réessayez dans 2 minutes.")

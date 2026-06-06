@@ -1,10 +1,10 @@
 """
 Market Data Models — Afrika Markets Intelligence
-Tables : brvm_actions, brvm_indices, brvm_market_summary
+Tables : brvm_actions, brvm_indices, brvm_market_summary, intl_market_cache
 """
 from sqlalchemy import (
     Column, String, Float, BigInteger, Date, DateTime,
-    Integer, UniqueConstraint,
+    Integer, Text, UniqueConstraint,
 )
 from sqlalchemy.sql import func
 from backend.app.models.models import Base
@@ -58,3 +58,12 @@ class BrvmMarketSummary(Base):
     transactions_raw    = Column(String(100))
     date                = Column(Date, nullable=False, index=True)
     scraped_at          = Column(DateTime, server_default=func.now())
+
+
+class IntlMarketCache(Base):
+    """Cache persistant des données marchés internationaux (yfinance 365j)."""
+    __tablename__ = "intl_market_cache"
+
+    ticker     = Column(String(30), primary_key=True)   # ex: "BTC-USD", "GC=F"
+    fetched_at = Column(DateTime, nullable=False)
+    data_json  = Column(Text, nullable=False)            # JSON : réponse complète 365j
