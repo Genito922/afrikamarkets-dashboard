@@ -312,36 +312,88 @@ def _mfi(prices: list, opens: list, volumes: list, period: int = 14) -> list:
     return result
 
 
-class _TimeoutSession:
-    """Wrapper requests.Session avec timeout fixe et User-Agent navigateur."""
-    def __init__(self, timeout: int = 10):
-        import requests as _req
-        self._s = _req.Session()
-        self._s.headers["User-Agent"] = (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        )
-        self._timeout = timeout
+# ── Mappings de sources alternatives à Yahoo Finance ─────────
 
-    def get(self, url, **kwargs):
-        kwargs.setdefault("timeout", self._timeout)
-        return self._s.get(url, **kwargs)
+# Stooq (via pandas_datareader) — commodités, indices, forex
+_STOOQ_MAP = {
+    "CC=F":     "CC.F",    # Cacao futures
+    "KC=F":     "KC.F",    # Café (Coffee) futures
+    "GC=F":     "GC.F",    # Or (Gold) futures
+    "CL=F":     "CL.F",    # WTI Pétrole futures
+    "^GSPC":    "^SPX",    # S&P 500
+    "^FCHI":    "^CAC",    # CAC 40
+    "GBL=F":    "GBL.F",   # FGBL Bund futures
+    "ZN=F":     "ZN.F",    # T-Note 10Y futures
+    "EURUSD=X": "EURUSD",  # EUR/USD
+    "USDCAD=X": "USDCAD",  # USD/CAD
+    "GBPUSD=X": "GBPUSD",  # GBP/USD
+    "USDCHF=X": "USDCHF",  # USD/CHF
+}
 
-    def post(self, url, **kwargs):
-        kwargs.setdefault("timeout", self._timeout)
-        return self._s.post(url, **kwargs)
+# CoinGecko (API REST gratuite, pas de clé) — crypto
+_COINGECKO_MAP = {
+    "BTC-USD": "bitcoin",
+    "ETH-USD": "ethereum",
+    "BNB-USD": "binancecoin",
+    "XRP-USD": "ripple",
+}
 
-    def __getattr__(self, name):
-        return getattr(self._s, name)
 
+def _fetch_stooq(yf_ticker: str, days: int):
+    """Données OHLCV depuis stooq.pl via pandas_datareader."""
+    import pandas as pd
+    from datetime import datetime, timedelta
+    from pandas_datareader import data as pdr
 
-def _yf_fetch(ticker: str, period: str):
-    """Télécharge l'historique via yf.Ticker avec session navigateur + timeout 10s."""
-    import yfinance as yf
-    sess = _TimeoutSession(timeout=10)
-    df = yf.Ticker(ticker, session=sess).history(period=period, auto_adjust=True)
+    stooq_ticker = _STOOQ_MAP.get(yf_ticker, yf_ticker)
+    end   = datetime.today()
+    start = end - timedelta(days=days + 60)   # buffer week-ends/fériés
+
+    df = pdr.DataReader(stooq_ticker, "stooq", start=start, end=end)
+    df = df.sort_index()                       # stooq renvoie en ordre décroissant
+    df = df.tail(days)                         # garder au plus `days` lignes
     return df
+
+
+def _fetch_coingecko(yf_ticker: str, days: int):
+    """Données OHLCV depuis l'API CoinGecko (gratuite, sans clé)."""
+    import pandas as pd
+    from datetime import datetime
+    import httpx
+
+    coin_id = _COINGECKO_MAP[yf_ticker]
+    resp = httpx.get(
+        f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart",
+        params={"vs_currency": "usd", "days": days, "interval": "daily"},
+        timeout=15,
+        headers={"Accept": "application/json"},
+    )
+    resp.raise_for_status()
+    raw = resp.json()
+
+    prices  = raw.get("prices", [])
+    volumes = raw.get("total_volumes", [])
+    if not prices:
+        return pd.DataFrame()
+
+    dates  = [datetime.fromtimestamp(p[0] / 1000).date() for p in prices]
+    closes = [p[1] for p in prices]
+    vols   = [v[1] for v in volumes] if volumes else [0.0] * len(prices)
+
+    return pd.DataFrame(
+        {"Open": closes, "High": closes, "Low": closes, "Close": closes, "Volume": vols},
+        index=pd.DatetimeIndex(dates),
+    )
+
+
+def _yf_fetch(ticker: str, days: int):
+    """Routeur principal : stooq → CoinGecko selon le ticker.
+    Appelé par le job APScheduler ET comme fallback live depuis les endpoints.
+    Accepte `days` en entier (pas la string period de yfinance).
+    """
+    if ticker in _COINGECKO_MAP:
+        return _fetch_coingecko(ticker, days)
+    return _fetch_stooq(ticker, days)
 
 
 @router.get("/international/forex/xof")
@@ -366,16 +418,16 @@ async def get_forex_xof(db: AsyncSession = Depends(get_db)):
         except Exception:
             pass
     else:
-        # 2. Fallback live yfinance (uniquement si cache vide)
+        # 2. Fallback live stooq/coingecko (uniquement si cache vide)
         try:
-            eu_df = _yf_fetch("EURUSD=X", "5d")
-            uc_df = _yf_fetch("USDCAD=X", "5d")
+            eu_df = _yf_fetch("EURUSD=X", 5)
+            uc_df = _yf_fetch("USDCAD=X", 5)
             if not eu_df.empty:
                 eurusd = float(eu_df["Close"].dropna().iloc[-1])
             if not uc_df.empty:
                 usdcad = float(uc_df["Close"].dropna().iloc[-1])
         except Exception as exc:
-            logger.warning("[forex/xof] fallback yfinance échoué : %s", exc)
+            logger.warning("[forex/xof] fallback live échoué : %s", exc)
 
     return {
         "eur_xof": EUR_XOF,
@@ -415,9 +467,9 @@ async def get_international_ticker(
         except Exception as exc:
             logger.warning("[international] %s — erreur lecture cache DB : %s", ticker, exc)
 
-    # 2. Fallback live yfinance
+    # 2. Fallback live stooq/CoinGecko
     try:
-        df = _yf_fetch(ticker, f"{days}d")
+        df = _yf_fetch(ticker, days)
         if df.empty:
             raise HTTPException(503, detail=f"Données indisponibles pour {ticker} — cache en cours de population (réessayez dans 2 min)")
 

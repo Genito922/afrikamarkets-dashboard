@@ -174,7 +174,7 @@ async def job_prefetch_international() -> None:
 
     for ticker in INTL_TICKERS:
         try:
-            df = _yf_fetch(ticker, "365d")
+            df = _yf_fetch(ticker, 365)
             if df.empty:
                 logger.warning("[IntlFetch] %s — df vide, skip", ticker)
                 ko += 1
