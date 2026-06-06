@@ -340,23 +340,49 @@ _COINGECKO_MAP = {
 
 
 def _fetch_stooq(yf_ticker: str, days: int):
-    """Données OHLCV depuis stooq.pl via pandas_datareader."""
+    """Données OHLCV depuis stooq.com via requête HTTP directe (CSV).
+    Contourne pandas_datareader (incompatible Python 3.12 — distutils manquant).
+    """
+    import io
     import pandas as pd
+    import requests as _req
     from datetime import datetime, timedelta
-    from pandas_datareader import data as pdr
 
     stooq_ticker = _STOOQ_MAP.get(yf_ticker, yf_ticker)
     end   = datetime.today()
-    start = end - timedelta(days=days + 60)   # buffer week-ends/fériés
+    start = end - timedelta(days=days + 60)    # buffer week-ends/fériés
 
-    df = pdr.DataReader(stooq_ticker, "stooq", start=start, end=end)
-    df = df.sort_index()                       # stooq renvoie en ordre décroissant
-    df = df.tail(days)                         # garder au plus `days` lignes
+    url = (
+        f"https://stooq.com/q/d/l/"
+        f"?s={stooq_ticker}"
+        f"&d1={start.strftime('%Y%m%d')}"
+        f"&d2={end.strftime('%Y%m%d')}"
+        f"&i=d"
+    )
+    resp = _req.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+    resp.raise_for_status()
+
+    content = resp.text.strip()
+    if not content or "No data" in content or content.startswith("<"):
+        return pd.DataFrame()
+
+    df = pd.read_csv(io.StringIO(content))
+    if "Date" not in df.columns or "Close" not in df.columns:
+        return pd.DataFrame()
+
+    df["Date"] = pd.to_datetime(df["Date"])
+    df = df.set_index("Date").sort_index()
+    # Normaliser les colonnes
+    df = df.rename(columns={c: c.strip() for c in df.columns})
+    for col in ["Open", "High", "Low", "Close", "Volume"]:
+        if col not in df.columns:
+            df[col] = df.get("Close", 0)
+    df = df.tail(days)
     return df
 
 
 def _fetch_coingecko(yf_ticker: str, days: int):
-    """Données OHLCV depuis l'API CoinGecko (gratuite, sans clé)."""
+    """Données OHLCV depuis l'API CoinGecko (gratuite, sans clé API)."""
     import pandas as pd
     from datetime import datetime
     import httpx
@@ -364,21 +390,26 @@ def _fetch_coingecko(yf_ticker: str, days: int):
     coin_id = _COINGECKO_MAP[yf_ticker]
     resp = httpx.get(
         f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart",
-        params={"vs_currency": "usd", "days": days, "interval": "daily"},
+        params={"vs_currency": "usd", "days": max(days, 2), "interval": "daily"},
         timeout=15,
         headers={"Accept": "application/json"},
     )
     resp.raise_for_status()
     raw = resp.json()
 
-    prices  = raw.get("prices", [])
-    volumes = raw.get("total_volumes", [])
+    prices  = raw.get("prices") or []
+    volumes = raw.get("total_volumes") or []
     if not prices:
         return pd.DataFrame()
 
-    dates  = [datetime.fromtimestamp(p[0] / 1000).date() for p in prices]
-    closes = [p[1] for p in prices]
-    vols   = [v[1] for v in volumes] if volumes else [0.0] * len(prices)
+    try:
+        dates  = [datetime.utcfromtimestamp(p[0] / 1000).date() for p in prices if len(p) >= 2]
+        closes = [float(p[1]) for p in prices if len(p) >= 2]
+        vols   = [float(v[1]) for v in volumes if len(v) >= 2]
+        if len(vols) != len(closes):
+            vols = [0.0] * len(closes)
+    except (IndexError, TypeError, ValueError):
+        return pd.DataFrame()
 
     return pd.DataFrame(
         {"Open": closes, "High": closes, "Low": closes, "Close": closes, "Volume": vols},
