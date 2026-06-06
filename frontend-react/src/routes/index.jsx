@@ -20,14 +20,7 @@ import Analyse      from "../pages/Analyse";
 import Portefeuille from "../pages/Portefeuille";
 import Risques      from "../pages/Risques";
 
-// Placeholder pour pages restantes (international markets)
-const WIP = ({ title }) => (
-  <div className="py-20 text-center">
-    <p className="text-4xl mb-4">🚧</p>
-    <h2 className="text-2xl font-bold text-white">{title}</h2>
-    <p className="text-gray-400 mt-2">Page en cours de migration depuis Streamlit</p>
-  </div>
-);
+import MarchesInternationaux from "../pages/MarchesInternationaux";
 
 export default function AppRoutes() {
   return (
@@ -50,8 +43,7 @@ export default function AppRoutes() {
       <Route path="/sgi"            element={<SGICenter />} />
       <Route path="/profile"        element={<Profile />} />
 
-      {/* ── En attente ───────────────────────────────────── */}
-      <Route path="/international"  element={<WIP title="Marchés Internationaux" />} />
+      <Route path="/international"   element={<MarchesInternationaux />} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>

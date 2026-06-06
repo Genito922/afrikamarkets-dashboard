@@ -1,12 +1,14 @@
 """
 Intel Router — Afrika Markets Intelligence
-GET /intel/warroom       → données géopolitiques UEMOA (ACLED + IMF + fallback)
-GET /intel/sgi/ranking   → classement SGI pondéré
-POST /intel/sgi/reco     → recommandation SGI personnalisée
-GET /intel/opcvm         → liste OPCVM BRVM
-GET /plans               → description des plans tarifaires
+GET /intel/warroom                    → données géopolitiques UEMOA (ACLED + IMF + fallback)
+GET /intel/sgi/ranking                → classement SGI pondéré
+POST /intel/sgi/reco                  → recommandation SGI personnalisée
+GET /intel/opcvm                      → liste OPCVM BRVM
+GET /intel/plans                      → description des plans tarifaires
+GET /intel/international/forex/xof    → taux EUR/XOF (fixe) + USD/XOF + CAD/XOF
+GET /intel/international/{ticker}     → OHLCV + indicateurs techniques yfinance
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
 
@@ -251,3 +253,175 @@ async def get_plans():
         {"id": "expert",  "name": "Expert",  "price_cad": 199.99, "price_usd": 148,
          "features": ["Tout Pro +","Marchés Internationaux","API accès direct","Support prioritaire"]},
     ]}
+
+
+# ── Marchés Internationaux (yfinance) ────────────────────────
+
+def _ma(prices: list, period: int) -> list:
+    result = []
+    for i in range(len(prices)):
+        window = prices[max(0, i - period + 1): i + 1]
+        result.append(sum(window) / len(window))
+    return result
+
+
+def _rsi(prices: list, period: int = 14) -> list:
+    if len(prices) < 2:
+        return [None] * len(prices)
+    deltas = [prices[i] - prices[i - 1] for i in range(1, len(prices))]
+    gains  = [max(d, 0.0) for d in deltas]
+    losses = [max(-d, 0.0) for d in deltas]
+    alpha  = 1.0 / period
+    avg_g, avg_l = gains[0], losses[0]
+    rsi_vals = [None]
+    for i in range(1, len(gains)):
+        avg_g = alpha * gains[i] + (1 - alpha) * avg_g
+        avg_l = alpha * losses[i] + (1 - alpha) * avg_l
+        if avg_l == 0:
+            rsi_vals.append(100.0)
+        else:
+            rsi_vals.append(round(100 - 100 / (1 + avg_g / avg_l), 2))
+    return rsi_vals
+
+
+def _mfi(prices: list, opens: list, volumes: list, period: int = 14) -> list:
+    n      = len(prices)
+    highs  = [max(prices[i], opens[i]) for i in range(n)]
+    lows   = [min(prices[i], opens[i]) for i in range(n)]
+    tps    = [(highs[i] + lows[i] + prices[i]) / 3.0 for i in range(n)]
+    raw_mf = [tps[i] * volumes[i] for i in range(n)]
+    result = [None] * n
+    for i in range(period, n):
+        pos = sum(raw_mf[j] for j in range(i - period, i) if j > 0 and tps[j] > tps[j - 1])
+        neg = sum(raw_mf[j] for j in range(i - period, i) if j > 0 and tps[j] < tps[j - 1])
+        if neg == 0:
+            result[i] = 100.0
+        elif pos == 0:
+            result[i] = 0.0
+        else:
+            result[i] = round(100 - 100 / (1 + pos / neg), 2)
+    return result
+
+
+@router.get("/international/forex/xof")
+async def get_forex_xof():
+    """Taux EUR/XOF (parité fixe BCEAO) + USD/XOF + CAD/XOF dérivés via yfinance."""
+    EUR_XOF = 655.957
+    eurusd, usdcad = 1.08, 1.36  # fallback conservatif
+    try:
+        import yfinance as yf
+        df_fx = yf.download(
+            "EURUSD=X USDCAD=X", period="5d",
+            auto_adjust=True, progress=False, threads=False,
+        )
+        if not df_fx.empty:
+            close = df_fx["Close"] if "Close" in df_fx.columns else df_fx
+            if hasattr(close.columns, "levels"):
+                eu = close["EURUSD=X"].dropna()
+                uc = close["USDCAD=X"].dropna()
+            else:
+                eu = close.iloc[:, 0].dropna()
+                uc = close.iloc[:, 1].dropna()
+            if len(eu):
+                eurusd = float(eu.iloc[-1])
+            if len(uc):
+                usdcad = float(uc.iloc[-1])
+    except Exception:
+        pass
+
+    return {
+        "eur_xof": EUR_XOF,
+        "usd_xof": round(EUR_XOF / eurusd, 2),
+        "cad_xof": round(EUR_XOF / eurusd / usdcad, 2),
+        "eurusd":  round(eurusd, 4),
+        "usdcad":  round(usdcad, 4),
+    }
+
+
+@router.get("/international/{ticker:path}")
+async def get_international_ticker(
+    ticker: str,
+    days: int = Query(default=90, ge=30, le=365),
+):
+    """OHLCV + indicateurs techniques (MA/RSI/MFI) pour n'importe quel ticker yfinance."""
+    try:
+        import yfinance as yf
+        df = yf.download(
+            ticker, period=f"{days}d",
+            auto_adjust=True, progress=False, threads=False,
+        )
+        if df.empty:
+            raise HTTPException(404, detail=f"Pas de données pour {ticker}")
+
+        if hasattr(df.columns, "levels"):
+            df.columns = df.columns.droplevel(1)
+
+        df = df.dropna(subset=["Close"])
+        prices  = [float(v) for v in df["Close"]]
+        opens   = [float(v) for v in df["Open"]]
+        volumes = [float(v) for v in df["Volume"]]
+        dates   = [str(d.date()) for d in df.index]
+        n       = len(prices)
+
+        if n == 0:
+            raise HTTPException(404, detail=f"Données vides pour {ticker}")
+
+        ma16  = _ma(prices, min(16, n))
+        ma19  = _ma(prices, min(19, n))
+        ma246 = _ma(prices, min(246, n))
+        ma361 = _ma(prices, min(361, n))
+        rsi   = _rsi(prices)
+        mfi   = _mfi(prices, opens, volumes)
+
+        data = []
+        for i in range(n):
+            data.append({
+                "date":   dates[i],
+                "cours":  round(prices[i], 4),
+                "volume": volumes[i],
+                "ma16":   round(ma16[i], 4)  if ma16[i]  is not None else None,
+                "ma19":   round(ma19[i], 4)  if ma19[i]  is not None else None,
+                "ma246":  round(ma246[i], 4) if ma246[i] is not None else None,
+                "ma361":  round(ma361[i], 4) if ma361[i] is not None else None,
+                "rsi":    rsi[i],
+                "mfi":    mfi[i],
+            })
+
+        last = data[-1]
+        r, m = last["rsi"] or 50, last["mfi"] or 50
+        score, reasons = 0, []
+        if r < 30:   score += 2; reasons.append("RSI survendu (<30)")
+        elif r < 45: score += 1; reasons.append("RSI zone basse (<45)")
+        elif r > 70: score -= 2; reasons.append("RSI suracheté (>70)")
+        elif r > 55: score -= 1; reasons.append("RSI zone haute (>55)")
+        if m < 20:   score += 2; reasons.append("MFI survendu (<20)")
+        elif m > 80: score -= 2; reasons.append("MFI suracheté (>80)")
+        if all(v is not None for v in [last["ma16"], last["ma19"], last["ma246"], last["ma361"]]):
+            if last["ma16"] > last["ma19"]:
+                score += 1; reasons.append("MA16 > MA19 (haussier court terme)")
+            else:
+                score -= 1; reasons.append("MA16 < MA19 (baissier court terme)")
+            if last["ma19"] > last["ma246"]:
+                score += 1
+            else:
+                score -= 1
+
+        if score >= 3:    sig_label, sig_color = "Achat fort",    "#00CC66"
+        elif score >= 1:  sig_label, sig_color = "Achat modéré",  "#FFD700"
+        elif score == 0:  sig_label, sig_color = "Neutre",         "#888888"
+        elif score >= -2: sig_label, sig_color = "Vente modérée", "#FF6B35"
+        else:             sig_label, sig_color = "Vente forte",   "#FF4444"
+
+        return {
+            "ticker": ticker,
+            "days":   days,
+            "count":  n,
+            "data":   data,
+            "last":   {**last, "label": sig_label, "color": sig_color,
+                       "score": score, "reasons": reasons},
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, detail=f"Erreur yfinance : {exc}")

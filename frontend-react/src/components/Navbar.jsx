@@ -18,8 +18,9 @@ const NAV_ITEMS = [
   { to: "/analyse",      labelKey: "nav_analyse",      label: "Analyse" },
   { to: "/portefeuille", labelKey: "nav_portfolio",    label: "Portefeuille" },
   { to: "/risques",      labelKey: "nav_warroom",      label: "War Room" },
-  { to: "/sgi",          labelKey: "sgi_module1",      label: "SGI & OPCVM" },
-  { to: "/pricing",      labelKey: "sub_title",        label: "Abonnement" },
+  { to: "/sgi",           labelKey: "sgi_module1",      label: "SGI & OPCVM" },
+  { to: "/international", labelKey: "nav_international", label: "Intl" },
+  { to: "/pricing",       labelKey: "sub_title",        label: "Abonnement" },
 ];
 
 export default function Navbar() {
