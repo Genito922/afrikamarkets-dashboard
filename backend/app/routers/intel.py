@@ -306,8 +306,15 @@ def _mfi(prices: list, opens: list, volumes: list, period: int = 14) -> list:
     return result
 
 
+import time as _time
+
+# Cache in-memory TTL 4h — clé (ticker, days) → (timestamp, payload)
+_YF_CACHE: dict = {}
+_CACHE_TTL = 4 * 3600   # 4 heures
+
+
 def _yf_session():
-    """Session requests avec User-Agent navigateur pour éviter le rate-limit Yahoo Finance."""
+    """Session requests avec User-Agent navigateur pour contourner le rate-limit Yahoo Finance."""
     import requests as _req
     s = _req.Session()
     s.headers["User-Agent"] = (
@@ -318,30 +325,48 @@ def _yf_session():
     return s
 
 
+def _yf_fetch(ticker: str, period: str):
+    """Télécharge l'historique via yf.Ticker avec session navigateur."""
+    import yfinance as yf
+    sess = _yf_session()
+    df = yf.Ticker(ticker, session=sess).history(period=period, auto_adjust=True)
+    return df
+
+
 @router.get("/international/forex/xof")
 async def get_forex_xof():
     """Taux EUR/XOF (parité fixe BCEAO) + USD/XOF + CAD/XOF dérivés via yfinance."""
     EUR_XOF = 655.957
+    cache_key = ("__forex_xof__", 0)
+    now = _time.time()
+
+    # Cache hit
+    if cache_key in _YF_CACHE and now - _YF_CACHE[cache_key][0] < _CACHE_TTL:
+        return _YF_CACHE[cache_key][1]
+
     eurusd, usdcad = 1.08, 1.36  # fallback conservatif
     try:
-        import yfinance as yf
-        sess = _yf_session()
-        eu_df = yf.Ticker("EURUSD=X", session=sess).history(period="5d", auto_adjust=True)
-        uc_df = yf.Ticker("USDCAD=X", session=sess).history(period="5d", auto_adjust=True)
+        eu_df = _yf_fetch("EURUSD=X", "5d")
+        uc_df = _yf_fetch("USDCAD=X", "5d")
         if not eu_df.empty:
             eurusd = float(eu_df["Close"].dropna().iloc[-1])
         if not uc_df.empty:
             usdcad = float(uc_df["Close"].dropna().iloc[-1])
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("[forex/xof] yfinance error (%s) — fallback rates", exc)
+        # Retourner le cache périmé si disponible
+        if cache_key in _YF_CACHE:
+            return _YF_CACHE[cache_key][1]
 
-    return {
+    result = {
         "eur_xof": EUR_XOF,
         "usd_xof": round(EUR_XOF / eurusd, 2),
         "cad_xof": round(EUR_XOF / eurusd / usdcad, 2),
         "eurusd":  round(eurusd, 4),
         "usdcad":  round(usdcad, 4),
     }
+    _YF_CACHE[cache_key] = (now, result)
+    return result
 
 
 @router.get("/international/{ticker:path}")
@@ -350,12 +375,21 @@ async def get_international_ticker(
     days: int = Query(default=90, ge=30, le=365),
 ):
     """OHLCV + indicateurs techniques (MA/RSI/MFI) pour n'importe quel ticker yfinance."""
+    cache_key = (ticker, days)
+    now = _time.time()
+
+    # Cache hit (< 4h)
+    if cache_key in _YF_CACHE and now - _YF_CACHE[cache_key][0] < _CACHE_TTL:
+        return _YF_CACHE[cache_key][1]
+
     try:
-        import yfinance as yf
-        sess = _yf_session()
-        df = yf.Ticker(ticker, session=sess).history(period=f"{days}d", auto_adjust=True)
+        df = _yf_fetch(ticker, f"{days}d")
         if df.empty:
-            raise HTTPException(503, detail=f"Données indisponibles pour {ticker} (rate-limit Yahoo Finance)")
+            # Retourner le cache périmé si disponible
+            if cache_key in _YF_CACHE:
+                logger.warning("[international] %s — df vide, fallback cache périmé", ticker)
+                return _YF_CACHE[cache_key][1]
+            raise HTTPException(503, detail=f"Données indisponibles pour {ticker} — réessayez dans quelques minutes")
 
         df = df.dropna(subset=["Close"])
         prices  = [float(v) for v in df["Close"]]
@@ -413,7 +447,7 @@ async def get_international_ticker(
         elif score >= -2: sig_label, sig_color = "Vente modérée", "#FF6B35"
         else:             sig_label, sig_color = "Vente forte",   "#FF4444"
 
-        return {
+        result = {
             "ticker": ticker,
             "days":   days,
             "count":  n,
@@ -421,9 +455,15 @@ async def get_international_ticker(
             "last":   {**last, "label": sig_label, "color": sig_color,
                        "score": score, "reasons": reasons},
         }
+        _YF_CACHE[cache_key] = (now, result)
+        return result
 
     except HTTPException:
         raise
     except Exception as exc:
         logger.error("[international] %s — %s: %s", ticker, type(exc).__name__, exc)
-        raise HTTPException(503, detail=f"Données temporairement indisponibles ({type(exc).__name__})")
+        # Fallback : retourner le cache périmé plutôt qu'une erreur
+        if cache_key in _YF_CACHE:
+            logger.warning("[international] %s — fallback cache périmé", ticker)
+            return _YF_CACHE[cache_key][1]
+        raise HTTPException(503, detail="Données temporairement indisponibles — Yahoo Finance rate-limit. Réessayez dans quelques minutes.")
