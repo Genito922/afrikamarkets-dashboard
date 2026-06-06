@@ -1,19 +1,17 @@
 """
-Sécurité — JWT + bcrypt
+Sécurité — JWT + bcrypt (sans passlib)
 """
 from datetime import datetime, timedelta
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+from jose import jwt
 from pydantic import BaseModel
+import bcrypt
 import os
 import secrets
 import string
 
 SECRET_KEY = os.getenv("SECRET_KEY", "changeme_please_32chars_minimum!!")
 ALGORITHM  = os.getenv("JWT_ALGORITHM", "HS256")
-EXPIRE_MIN = int(os.getenv("JWT_EXPIRE_MINUTES", 1440))  # 24h par défaut
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+EXPIRE_MIN = int(os.getenv("JWT_EXPIRE_MINUTES", 1440))
 
 
 class TokenData(BaseModel):
@@ -23,11 +21,11 @@ class TokenData(BaseModel):
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
 def create_token(data: dict, expires_delta: timedelta = None) -> str:
