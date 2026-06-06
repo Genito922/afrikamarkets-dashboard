@@ -2,6 +2,7 @@
 Pipeline Jobs — scrape BRVM + persist PostgreSQL/SQLite
 """
 import logging
+import math
 from datetime import date
 
 from sqlalchemy import select, and_
@@ -49,6 +50,29 @@ async def job_scrape_market() -> None:
 
 # ── helpers upsert ────────────────────────────────────────────────────────────
 
+def _str(val) -> str | None:
+    """Convertit NaN pandas/float en None, sinon renvoie str."""
+    if val is None:
+        return None
+    try:
+        if math.isnan(float(val)):
+            return None
+    except (TypeError, ValueError):
+        pass
+    return str(val) if not isinstance(val, str) else val
+
+
+def _float(val) -> float | None:
+    """Convertit NaN en None."""
+    if val is None:
+        return None
+    try:
+        f = float(val)
+        return None if math.isnan(f) else f
+    except (TypeError, ValueError):
+        return None
+
+
 async def _upsert_action(session: AsyncSession, row, today: date) -> None:
     res = await session.execute(
         select(BrvmAction).where(
@@ -57,22 +81,22 @@ async def _upsert_action(session: AsyncSession, row, today: date) -> None:
     )
     record = res.scalar_one_or_none()
     if record:
-        record.cours        = row["cours"]
-        record.cours_veille = row["cours_veille"]
-        record.cours_ouv    = row["cours_ouv"]
-        record.variation    = row["variation"]
-        record.volume       = int(row["volume"])
-        record.secteur      = row.get("secteur")
+        record.cours        = _float(row["cours"])
+        record.cours_veille = _float(row["cours_veille"])
+        record.cours_ouv    = _float(row["cours_ouv"])
+        record.variation    = _float(row["variation"])
+        record.volume       = int(row["volume"]) if row["volume"] else 0
+        record.secteur      = _str(row.get("secteur"))
     else:
         session.add(BrvmAction(
-            symbole      = row["symbole"],
-            nom          = row["nom"],
-            secteur      = row.get("secteur"),
-            cours_ouv    = row["cours_ouv"],
-            cours        = row["cours"],
-            cours_veille = row["cours_veille"],
-            variation    = row["variation"],
-            volume       = int(row["volume"]),
+            symbole      = str(row["symbole"]),
+            nom          = _str(row["nom"]),
+            secteur      = _str(row.get("secteur")),
+            cours_ouv    = _float(row["cours_ouv"]),
+            cours        = _float(row["cours"]),
+            cours_veille = _float(row["cours_veille"]),
+            variation    = _float(row["variation"]),
+            volume       = int(row["volume"]) if row["volume"] else 0,
             date         = today,
         ))
 
