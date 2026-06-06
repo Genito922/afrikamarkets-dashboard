@@ -8,9 +8,12 @@ GET /intel/plans                      → description des plans tarifaires
 GET /intel/international/forex/xof    → taux EUR/XOF (fixe) + USD/XOF + CAD/XOF
 GET /intel/international/{ticker}     → OHLCV + indicateurs techniques yfinance
 """
+import logging
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/intel", tags=["intel"])
 
@@ -422,4 +425,5 @@ async def get_international_ticker(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(500, detail=f"Erreur yfinance : {exc}")
+        logger.error("[international] %s — %s: %s", ticker, type(exc).__name__, exc)
+        raise HTTPException(503, detail=f"Données temporairement indisponibles ({type(exc).__name__})")
