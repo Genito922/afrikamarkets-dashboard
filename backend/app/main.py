@@ -15,6 +15,7 @@ from backend.app.routers import market
 async def lifespan(app: FastAPI):
     # Init DB (create tables si nécessaire)
     await init_db()
+    await seed_initial_users()
     # Démarrage du scheduler de scraping
     from backend.app.pipeline.scheduler import start_scheduler, stop_scheduler
     start_scheduler()
@@ -52,3 +53,41 @@ app.include_router(market.router)
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "afrika-markets-intelligence-api", "version": "2.0.0"}
+
+
+async def seed_initial_users():
+    """Seed les comptes testeurs au démarrage si la DB est vide."""
+    import uuid
+    from backend.app.core.security import hash_password
+    from backend.app.core.database import AsyncSessionLocal
+    from backend.app.models.models import User, PlanEnum, StatusEnum
+    from sqlalchemy import select, func
+    from datetime import datetime, timedelta
+
+    async with AsyncSessionLocal() as s:
+        count = await s.execute(select(func.count()).select_from(User))
+        if count.scalar() > 0:
+            return  # DB déjà peuplée
+
+        TESTERS = [
+            ("testeur1@afrikamarkets.com", "Test@Afrika1",  "Testeur Un",    "CI", False),
+            ("testeur2@afrikamarkets.com", "Test@Afrika2",  "Testeur Deux",  "SN", False),
+            ("testeur3@afrikamarkets.com", "Test@Afrika3",  "Testeur Trois", "CA", False),
+            ("testeur4@afrikamarkets.com", "Test@Afrika4",  "Testeur Quatre","FR", False),
+            ("testeur5@afrikamarkets.com", "Test@Afrika5",  "Testeur Cinq",  "BF", False),
+            ("ndoubajeanclaude@outlook.com", "Afrika@Admin2024!", "Jean-Claude N'Douba", "CI", True),
+        ]
+        for email, pwd, name, country, is_admin in TESTERS:
+            s.add(User(
+                id=str(uuid.uuid4()),
+                email=email,
+                hashed_password=hash_password(pwd),
+                full_name=name,
+                country=country,
+                plan=PlanEnum.EXPERT,
+                status=StatusEnum.ACTIVE,
+                is_admin=is_admin,
+                trial_ends_at=datetime.utcnow() + timedelta(days=365),
+            ))
+        await s.commit()
+        print(f"[Seed] {len(TESTERS)} comptes créés")
