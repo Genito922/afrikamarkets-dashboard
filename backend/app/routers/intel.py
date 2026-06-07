@@ -361,9 +361,9 @@ _FRANKFURTER_MAP = {
 _TWELVE_DATA_MAP = {
     "CC=F":  "CC1!",    # Cacao futures
     "KC=F":  "KC1!",    # Café futures
-    "GC=F":  "XAU/USD", # Or
-    "CL=F":  "WTI/USD", # WTI Crude Oil
-    "^GSPC": "SPX",     # S&P 500
+    "GC=F":  "XAU/USD", # Or (forex pair, free tier)
+    "CL=F":  "USO",     # WTI proxy — USO ETF (free tier; commodity pairs hors free tier)
+    "^GSPC": "SPY",     # S&P 500 proxy — SPY ETF (free tier; SPX index hors free tier)
     "^FCHI": "CAC40",   # CAC 40
     "GBL=F": "BUND",    # FGBL Bund 10Y
     "ZN=F":  "TNX",     # US T-Note 10Y yield
@@ -474,10 +474,12 @@ def _fetch_twelvedata(yf_ticker: str, days: int):
         )
         resp.raise_for_status()
     except httpx.HTTPStatusError as exc:
-        if exc.response.status_code == 429:
+        code = exc.response.status_code
+        if code == 429:
             logger.warning("[twelvedata] rate-limit 429 sur %s — réessayer plus tard", yf_ticker)
-            return pd.DataFrame()
-        raise
+        else:
+            logger.warning("[twelvedata] HTTP %s sur %s (%s)", code, yf_ticker, td_symbol)
+        return pd.DataFrame()
     raw = resp.json()
 
     if raw.get("status") == "error" or "values" not in raw:
