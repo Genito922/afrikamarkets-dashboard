@@ -256,7 +256,7 @@ async def job_prefetch_international() -> None:
 
             ok += 1
             logger.info("[IntlFetch] ✓ %s (%d pts)", ticker, n)
-            await asyncio.sleep(3)   # pause anti rate-limit entre chaque ticker
+            await asyncio.sleep(8)   # Twelve Data free tier : 8 calls/min → ≥7.5s entre appels
 
         except Exception as exc:
             import traceback

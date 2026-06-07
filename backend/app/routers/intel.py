@@ -324,7 +324,7 @@ def _mfi(prices: list, opens: list, volumes: list, period: int = 14) -> list:
 # Pour activer les commodités, indices et forex :
 #   railway variables set TWELVE_DATA_KEY=<votre_clé>
 
-# CoinGecko — crypto uniquement
+# CoinGecko — crypto uniquement (gratuit, sans clé, sans restriction IP)
 _COINGECKO_MAP = {
     "BTC-USD": "bitcoin",
     "ETH-USD": "ethereum",
@@ -332,21 +332,26 @@ _COINGECKO_MAP = {
     "XRP-USD": "ripple",
 }
 
-# Twelve Data — commodités, indices, forex
+# Frankfurter — forex uniquement (gratuit, sans clé, sans limite)
+# https://www.frankfurter.app
+_FRANKFURTER_MAP = {
+    "EURUSD=X": ("EUR", "USD"),
+    "USDCAD=X": ("USD", "CAD"),
+    "GBPUSD=X": ("GBP", "USD"),
+    "USDCHF=X": ("USD", "CHF"),
+}
+
+# Twelve Data — commodités et indices uniquement (8 tickers, free tier 800/jour, 8/min)
 # Inscription gratuite : https://twelvedata.com/register
 _TWELVE_DATA_MAP = {
-    "CC=F":     "CC1!",       # Cacao (cocoa) futures
-    "KC=F":     "KC1!",       # Café (coffee) futures
-    "GC=F":     "XAU/USD",    # Or (Gold) via forex pair
-    "CL=F":     "WTI/USD",    # WTI Crude Oil
-    "^GSPC":    "SPX",        # S&P 500
-    "^FCHI":    "CAC40",      # CAC 40
-    "GBL=F":    "BUND",       # FGBL Bund 10Y
-    "ZN=F":     "TNX",        # US T-Note 10Y yield
-    "EURUSD=X": "EUR/USD",
-    "USDCAD=X": "USD/CAD",
-    "GBPUSD=X": "GBP/USD",
-    "USDCHF=X": "USD/CHF",
+    "CC=F":  "CC1!",    # Cacao futures
+    "KC=F":  "KC1!",    # Café futures
+    "GC=F":  "XAU/USD", # Or
+    "CL=F":  "WTI/USD", # WTI Crude Oil
+    "^GSPC": "SPX",     # S&P 500
+    "^FCHI": "CAC40",   # CAC 40
+    "GBL=F": "BUND",    # FGBL Bund 10Y
+    "ZN=F":  "TNX",     # US T-Note 10Y yield
 }
 
 
@@ -386,9 +391,50 @@ def _fetch_coingecko(yf_ticker: str, days: int):
     )
 
 
+def _fetch_frankfurter(yf_ticker: str, days: int):
+    """Données forex depuis Frankfurter API (gratuit, sans clé, sans limite de taux).
+    Couvre EURUSD=X, USDCAD=X, GBPUSD=X, USDCHF=X.
+    """
+    import httpx, pandas as pd
+    from datetime import date as _date, timedelta
+
+    pair = _FRANKFURTER_MAP.get(yf_ticker)
+    if not pair:
+        return pd.DataFrame()
+
+    base, quote = pair
+    end   = _date.today()
+    start = end - timedelta(days=days)
+
+    try:
+        resp = httpx.get(
+            f"https://api.frankfurter.app/{start}..{end}",
+            params={"from": base, "to": quote},
+            timeout=15,
+        )
+        resp.raise_for_status()
+    except Exception as exc:
+        logger.warning("[frankfurter] %s — %s", yf_ticker, exc)
+        return pd.DataFrame()
+
+    rates = resp.json().get("rates", {})
+    if not rates:
+        return pd.DataFrame()
+
+    sorted_dates = sorted(rates.keys())
+    closes = [float(rates[d][quote]) for d in sorted_dates]
+    idx    = pd.DatetimeIndex(sorted_dates)
+    return pd.DataFrame(
+        {"Open": closes, "High": closes, "Low": closes, "Close": closes,
+         "Volume": [0.0] * len(closes)},
+        index=idx,
+    )
+
+
 def _fetch_twelvedata(yf_ticker: str, days: int):
     """Données OHLCV depuis Twelve Data (requiert TWELVE_DATA_KEY env var).
     Inscription gratuite 800 calls/jour : https://twelvedata.com/register
+    Free tier : 8 calls/min — le scheduler respecte ce rythme (sleep 8s entre appels).
     """
     import os, httpx, pandas as pd
 
@@ -400,17 +446,23 @@ def _fetch_twelvedata(yf_ticker: str, days: int):
     if not td_symbol:
         return pd.DataFrame()
 
-    resp = httpx.get(
-        "https://api.twelvedata.com/time_series",
-        params={
-            "symbol":     td_symbol,
-            "interval":   "1day",
-            "outputsize": min(days, 365),
-            "apikey":     api_key,
-        },
-        timeout=20,
-    )
-    resp.raise_for_status()
+    try:
+        resp = httpx.get(
+            "https://api.twelvedata.com/time_series",
+            params={
+                "symbol":     td_symbol,
+                "interval":   "1day",
+                "outputsize": min(days, 365),
+                "apikey":     api_key,
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 429:
+            logger.warning("[twelvedata] rate-limit 429 sur %s — réessayer plus tard", yf_ticker)
+            return pd.DataFrame()
+        raise
     raw = resp.json()
 
     if raw.get("status") == "error" or "values" not in raw:
@@ -438,11 +490,14 @@ def _fetch_twelvedata(yf_ticker: str, days: int):
 
 def _yf_fetch(ticker: str, days: int):
     """Routeur principal des données de marché.
-    1. Crypto  → CoinGecko (gratuit, sans clé)
-    2. Autres  → Twelve Data (requiert TWELVE_DATA_KEY dans Railway)
+    1. Crypto  → CoinGecko   (gratuit, sans clé, sans restriction IP)
+    2. Forex   → Frankfurter (gratuit, sans clé, sans limite de taux)
+    3. Autres  → Twelve Data (requiert TWELVE_DATA_KEY, 8 calls/min max)
     """
     if ticker in _COINGECKO_MAP:
         return _fetch_coingecko(ticker, days)
+    if ticker in _FRANKFURTER_MAP:
+        return _fetch_frankfurter(ticker, days)
     return _fetch_twelvedata(ticker, days)
 
 
