@@ -275,22 +275,23 @@ def _ma(prices: list, period: int) -> list:
 
 
 def _rsi(prices: list, period: int = 14) -> list:
+    """Retourne une liste de longueur len(prices) — premier élément toujours None."""
     if len(prices) < 2:
         return [None] * len(prices)
     deltas = [prices[i] - prices[i - 1] for i in range(1, len(prices))]
     gains  = [max(d, 0.0) for d in deltas]
     losses = [max(-d, 0.0) for d in deltas]
     alpha  = 1.0 / period
-    avg_g, avg_l = gains[0], losses[0]
-    rsi_vals = [None]
-    for i in range(1, len(gains)):
+    avg_g, avg_l = 0.0, 0.0
+    rsi_vals = [None]                    # premier prix : pas de delta → None
+    for i in range(len(gains)):          # ← range(len(gains)) et non range(1, len(gains))
         avg_g = alpha * gains[i] + (1 - alpha) * avg_g
         avg_l = alpha * losses[i] + (1 - alpha) * avg_l
         if avg_l == 0:
             rsi_vals.append(100.0)
         else:
             rsi_vals.append(round(100 - 100 / (1 + avg_g / avg_l), 2))
-    return rsi_vals
+    return rsi_vals                      # len == len(prices) ✓
 
 
 def _mfi(prices: list, opens: list, volumes: list, period: int = 14) -> list:
@@ -364,6 +365,7 @@ def _fetch_stooq(yf_ticker: str, days: int):
 
     content = resp.text.strip()
     if not content or "No data" in content or content.startswith("<"):
+        logger.warning("[stooq] %s → vide/HTML (premiers 120 chars: %s)", stooq_ticker, content[:120])
         return pd.DataFrame()
 
     df = pd.read_csv(io.StringIO(content))

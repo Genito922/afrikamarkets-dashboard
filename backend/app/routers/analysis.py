@@ -32,13 +32,11 @@ def _rsi(prices: list[float], period: int = 14) -> list[float | None]:
     gains = [max(d, 0.0) for d in deltas]
     losses = [max(-d, 0.0) for d in deltas]
 
-    # EWM warmup
     alpha = 1.0 / period
-    avg_g = gains[0]
-    avg_l = losses[0]
-    rsi_vals = [None]  # first point has no delta
+    avg_g, avg_l = 0.0, 0.0
+    rsi_vals = [None]              # premier prix : pas de delta → None
 
-    for i in range(1, len(gains)):
+    for i in range(len(gains)):    # ← range(len(gains)) pour retourner n éléments
         avg_g = alpha * gains[i] + (1 - alpha) * avg_g
         avg_l = alpha * losses[i] + (1 - alpha) * avg_l
         if avg_l == 0:
@@ -47,7 +45,7 @@ def _rsi(prices: list[float], period: int = 14) -> list[float | None]:
             rs = avg_g / avg_l
             rsi_vals.append(round(100 - 100 / (1 + rs), 2))
 
-    return rsi_vals
+    return rsi_vals                # len == len(prices) ✓
 
 
 def _mfi(prices: list[float], opens: list[float], volumes: list[float], period: int = 14) -> list[float | None]:
