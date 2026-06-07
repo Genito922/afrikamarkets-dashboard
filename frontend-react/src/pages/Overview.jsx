@@ -9,6 +9,7 @@
  */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 // ── Données ───────────────────────────────────────────────────
 
@@ -232,6 +233,7 @@ function QuizOption({ label, selected, onClick }) {
 
 export default function Overview() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   const [step,         setStep]         = useState(1);
   const [profil,       setProfil]       = useState({ name: "", type: "" });
@@ -509,41 +511,55 @@ export default function Overview() {
           <div className="card flex flex-col gap-5">
             <div>
               <h2 className="text-2xl font-bold text-white mb-1">🚀 Commencez maintenant</h2>
-              <p className="text-gray-400 text-sm">14 jours gratuits — aucune carte bancaire requise.</p>
+              {isAuthenticated
+                ? <p className="text-gray-400 text-sm">Votre profil est établi — accédez à votre tableau de bord.</p>
+                : <p className="text-gray-400 text-sm">14 jours gratuits — aucune carte bancaire requise.</p>
+              }
             </div>
 
-            <button
-              onClick={() => navigate(
-                `/register?plan=${profile.plan}${profil.name ? `&name=${encodeURIComponent(profil.name)}` : ""}`
-              )}
-              className="btn-primary w-full py-4 text-base"
-            >
-              Créer mon compte {PLAN_LABELS[profile.plan]} gratuitement
-            </button>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-gray-700" />
-              <span className="text-xs text-gray-500">ou</span>
-              <div className="flex-1 h-px bg-gray-700" />
-            </div>
-
-            <button
-              onClick={() => navigate("/pricing")}
-              className="w-full py-3 rounded-xl border border-gray-700 text-gray-300
-                         hover:border-gray-500 hover:text-white transition-all text-sm"
-            >
-              Voir tous les plans →
-            </button>
-
-            <p className="text-center text-xs text-gray-500">
-              Déjà un compte ?{" "}
+            {isAuthenticated ? (
               <button
-                onClick={() => navigate("/login")}
-                className="text-brand-400 hover:underline"
+                onClick={() => navigate("/dashboard")}
+                className="btn-primary w-full py-4 text-base"
               >
-                Se connecter
+                Accéder à mon tableau de bord →
               </button>
-            </p>
+            ) : (
+              <>
+                <button
+                  onClick={() => navigate(
+                    `/register?plan=${profile.plan}${profil.name ? `&name=${encodeURIComponent(profil.name)}` : ""}`
+                  )}
+                  className="btn-primary w-full py-4 text-base"
+                >
+                  Créer mon compte {PLAN_LABELS[profile.plan]} gratuitement
+                </button>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-px bg-gray-700" />
+                  <span className="text-xs text-gray-500">ou</span>
+                  <div className="flex-1 h-px bg-gray-700" />
+                </div>
+
+                <button
+                  onClick={() => navigate("/pricing")}
+                  className="w-full py-3 rounded-xl border border-gray-700 text-gray-300
+                             hover:border-gray-500 hover:text-white transition-all text-sm"
+                >
+                  Voir tous les plans →
+                </button>
+
+                <p className="text-center text-xs text-gray-500">
+                  Déjà un compte ?{" "}
+                  <button
+                    onClick={() => navigate("/login")}
+                    className="text-brand-400 hover:underline"
+                  >
+                    Se connecter
+                  </button>
+                </p>
+              </>
+            )}
 
             {/* Rappel réglementaire pied de page */}
             <p className="text-xs text-gray-600 text-center border-t border-gray-800 pt-4">
