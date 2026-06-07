@@ -6,10 +6,15 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 import os
 
-DATABASE_URL = (
-    os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./brvm_analyzer.db")
-    .replace("postgresql://", "postgresql+asyncpg://")
-)
+def _build_db_url() -> str:
+    url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./brvm_analyzer.db").strip()
+    # Normalise les variantes Railway/Heroku → driver asyncpg
+    url = url.replace("postgresql+psycopg2://", "postgresql+asyncpg://")
+    url = url.replace("postgresql://", "postgresql+asyncpg://")
+    url = url.replace("postgres://", "postgresql+asyncpg://")
+    return url
+
+DATABASE_URL = _build_db_url()
 
 engine = create_async_engine(DATABASE_URL, poolclass=NullPool, echo=False)
 
