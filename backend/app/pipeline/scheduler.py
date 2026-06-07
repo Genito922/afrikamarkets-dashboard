@@ -15,7 +15,10 @@ scheduler = AsyncIOScheduler(timezone="UTC")
 
 
 def start_scheduler() -> None:
-    from backend.app.pipeline.jobs import job_scrape_market, job_prefetch_international, job_warroom
+    from backend.app.pipeline.jobs import (
+        job_scrape_market, job_prefetch_international,
+        job_warroom, job_seed_history,
+    )
 
     # ── BRVM : toutes les 15 min (lun-ven 09h-17h UTC) ───────
     scheduler.add_job(
@@ -37,6 +40,15 @@ def start_scheduler() -> None:
         name="Intl Markets Pre-fetch (6h)",
         replace_existing=True,
         misfire_grace_time=600,
+    )
+
+    # ── Seed historique 30s après démarrage (run unique si < 20j en base) ──
+    scheduler.add_job(
+        job_seed_history,
+        trigger=DateTrigger(run_date=datetime.utcnow() + timedelta(seconds=30)),
+        id="seed_history_boot",
+        name="BRVM History Seed (boot)",
+        replace_existing=True,
     )
 
     # ── Run initial 60s après démarrage (cache vide au premier boot) ──
@@ -69,7 +81,7 @@ def start_scheduler() -> None:
 
     scheduler.start()
     logger.info(
-        "[Scheduler] Démarré — BRVM 15 min (lun-ven) · Intl 6h · WarRoom lundi (boot+90s)"
+        "[Scheduler] Démarré — BRVM 15min · Intl 6h · WarRoom lundi · SeedHistory boot+30s"
     )
 
 

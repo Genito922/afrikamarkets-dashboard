@@ -15,7 +15,7 @@ from backend.app.core.database import AsyncSessionLocal
 from backend.app.models.market_models import (
     BrvmAction, BrvmIndex, BrvmMarketSummary, IntlMarketCache,
 )
-from backend.app.pipeline.scraper import fetch_actions, fetch_indices, fetch_marche
+from backend.app.pipeline.scraper import fetch_actions, fetch_indices, fetch_marche, fetch_actions_day
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +161,52 @@ async def _upsert_summary(
             transactions_raw    = trans,
             date                = today,
         ))
+
+
+# ── Seed historique BRVM ─────────────────────────────────────
+
+async def job_seed_history(days: int = 40) -> None:
+    """
+    Peuple l'historique BRVM depuis brvm.org (offsets 1..days).
+    Run unique au boot si la DB a < 20 lignes dans brvm_actions.
+    """
+    import asyncio
+    from sqlalchemy import func as sa_func, select as sa_select
+
+    # Vérifier si l'historique est déjà suffisant
+    async with AsyncSessionLocal() as session:
+        count = (await session.execute(
+            sa_select(sa_func.count()).select_from(BrvmAction)
+        )).scalar()
+    if count >= 20 * 44:   # ~44 titres × 20 jours minimum
+        logger.info("[SeedHistory] Skip — %d lignes déjà en base", count)
+        return
+
+    logger.info("[SeedHistory] Démarrage — %d offsets à scraper (count=%d)", days, count)
+    total = 0
+
+    for offset in range(1, days + 1):
+        try:
+            df, scraped_date = fetch_actions_day(offset)
+            if df.empty or scraped_date is None:
+                logger.debug("[SeedHistory] offset=%d — vide, skip", offset)
+                await asyncio.sleep(1)
+                continue
+
+            async with AsyncSessionLocal() as session:
+                for _, row in df.iterrows():
+                    await _upsert_action(session, row, scraped_date)
+                await session.commit()
+
+            total += len(df)
+            logger.info("[SeedHistory] ✓ offset=%d date=%s (%d actions)", offset, scraped_date, len(df))
+            await asyncio.sleep(2)  # politesse brvm.org
+
+        except Exception as exc:
+            logger.warning("[SeedHistory] offset=%d — %s", offset, exc)
+            await asyncio.sleep(1)
+
+    logger.info("[SeedHistory] Terminé — %d lignes insérées", total)
 
 
 # ── Pré-fetch marchés internationaux ─────────────────────────
