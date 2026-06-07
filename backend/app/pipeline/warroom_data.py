@@ -131,12 +131,27 @@ def fetch_acled_hdx() -> dict:
         import pandas as pd
 
         # 1. Récupérer l'URL du CSV via l'API CKAN de HDX
-        r = httpx.get(
-            "https://data.humdata.org/api/3/action/package_show",
-            params={"id": "acled-conflict-data"},
-            timeout=15,
-        )
-        r.raise_for_status()
+        # Plusieurs slugs candidats — HDX les renomme régulièrement
+        _HDX_SLUGS = [
+            "acled-conflict-data-for-western-africa",
+            "acled-data-for-western-africa",
+            "acled-conflict-data",
+            "acled-data-for-africa",
+            "acled-data",
+        ]
+        r = None
+        for slug in _HDX_SLUGS:
+            _r = httpx.get(
+                "https://data.humdata.org/api/3/action/package_show",
+                params={"id": slug},
+                timeout=15,
+            )
+            if _r.status_code == 200 and _r.json().get("success"):
+                r = _r
+                logger.info("[ACLED/HDX] Package trouvé : %s", slug)
+                break
+        if r is None:
+            raise ValueError("Aucun package ACLED trouvé sur HDX")
         resources = r.json().get("result", {}).get("resources", [])
         csv_url = next(
             (res["url"] for res in resources if res.get("format", "").upper() == "CSV"),
