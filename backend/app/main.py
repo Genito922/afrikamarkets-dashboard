@@ -79,17 +79,29 @@ async def seed_initial_users():
             ("testeur5@afrikamarkets.com", "Test@Afrika5",  "Testeur Cinq",  "BF", False),
             ("ndoubajeanclaude@outlook.com", "Afrika@Admin2024!", "Jean-Claude N'Douba", "CI", True),
         ]
+        created = updated = 0
         for email, pwd, name, country, is_admin in TESTERS:
-            s.add(User(
-                id=str(uuid.uuid4()),
-                email=email,
-                hashed_password=hash_password(pwd),
-                full_name=name,
-                country=country,
-                plan=PlanEnum.EXPERT,
-                status=StatusEnum.ACTIVE,
-                is_admin=is_admin,
-                trial_ends_at=datetime.utcnow() + timedelta(days=365),
-            ))
+            res = await s.execute(select(User).where(User.email == email))
+            u = res.scalar_one_or_none()
+            if u:
+                u.hashed_password = hash_password(pwd)
+                u.plan = PlanEnum.EXPERT
+                u.status = StatusEnum.ACTIVE
+                u.is_admin = is_admin
+                u.trial_ends_at = datetime.utcnow() + timedelta(days=365)
+                updated += 1
+            else:
+                s.add(User(
+                    id=str(uuid.uuid4()),
+                    email=email,
+                    hashed_password=hash_password(pwd),
+                    full_name=name,
+                    country=country,
+                    plan=PlanEnum.EXPERT,
+                    status=StatusEnum.ACTIVE,
+                    is_admin=is_admin,
+                    trial_ends_at=datetime.utcnow() + timedelta(days=365),
+                ))
+                created += 1
         await s.commit()
-        print(f"[Seed] {len(TESTERS)} comptes créés")
+        print(f"[Seed] {created} crees, {updated} mis a jour")
