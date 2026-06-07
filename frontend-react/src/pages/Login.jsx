@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../context/AuthContext";
 
 const API = import.meta.env.VITE_API_URL || "";
 
 export default function Login() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [error, setError]       = useState("");
@@ -26,12 +28,11 @@ export default function Login() {
       if (!res.ok) {
         setError(data.detail || "Erreur de connexion");
       } else {
-        localStorage.setItem("ami_token", data.access_token);
-        localStorage.setItem("ami_user", JSON.stringify({
+        login(data.access_token, {
           full_name: data.full_name,
-          plan: data.plan,
-          status: data.status,
-        }));
+          plan:      data.plan,
+          status:    data.status,
+        });
         navigate("/dashboard");
       }
     } catch {

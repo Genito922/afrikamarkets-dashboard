@@ -51,7 +51,7 @@ export default function Home() {
           </p>
 
           <div className="flex flex-wrap justify-center gap-4">
-            <Link to="/register" className="btn-primary text-base px-8 py-3">
+            <Link to="/overview" className="btn-primary text-base px-8 py-3">
               {t("free_trial_btn")} →
             </Link>
             <Link to="/dashboard" className="btn-secondary text-base px-8 py-3">
@@ -107,7 +107,7 @@ export default function Home() {
               "Essai gratuit 14 jours — Aucune carte bancaire requise · Annulation à tout moment"
             )}
           </p>
-          <Link to="/register" className="btn-primary text-lg px-10 py-4">
+          <Link to="/overview" className="btn-primary text-lg px-10 py-4">
             {t("free_trial_btn")}
           </Link>
         </div>

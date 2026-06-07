@@ -1,12 +1,16 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../context/AuthContext";
 
 const API = import.meta.env.VITE_API_URL || "";
 
 export default function Register() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { login } = useAuth();
+  const [searchParams] = useSearchParams();
+  const prefilledPlan = searchParams.get("plan") || "";
   const [form, setForm]     = useState({ name: "", email: "", password: "", country: "CA" });
   const [error, setError]   = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,12 +34,11 @@ export default function Register() {
       if (!res.ok) {
         setError(data.detail || "Erreur d'inscription");
       } else {
-        localStorage.setItem("ami_token", data.access_token);
-        localStorage.setItem("ami_user", JSON.stringify({
+        login(data.access_token, {
           full_name: data.full_name,
-          plan: data.plan,
-          status: data.status,
-        }));
+          plan:      data.plan,
+          status:    data.status,
+        });
         navigate("/dashboard");
       }
     } catch {
@@ -52,6 +55,11 @@ export default function Register() {
           <span className="text-4xl">🌍</span>
           <h1 className="text-2xl font-bold text-white mt-3">Afrika Markets Intelligence</h1>
           <p className="text-gray-400 mt-1">{t("register_btn")} — 14 jours gratuits</p>
+          {prefilledPlan && (
+            <span className="inline-block mt-2 text-xs text-brand-400 bg-brand-500/10 border border-brand-500/20 px-3 py-1 rounded-full capitalize">
+              Plan sélectionné : {prefilledPlan}
+            </span>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="card flex flex-col gap-5">
