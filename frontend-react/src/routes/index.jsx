@@ -1,8 +1,8 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "../components/ProtectedRoute";
+import { useAuth } from "../context/AuthContext";
 
 // Public
-import Home         from "../pages/Home";
 import Login        from "../pages/Login";
 import Register     from "../pages/Register";
 import Overview     from "../pages/Overview";
@@ -27,11 +27,17 @@ import SGICenter    from "../pages/SGICenter";
 // App — plan Expert
 import MarchesInternationaux from "../pages/MarchesInternationaux";
 
+/** / → Overview pour tous ; redirect /dashboard si déjà connecté */
+function RootRoute() {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Overview />;
+}
+
 export default function AppRoutes() {
   return (
     <Routes>
       {/* ── Public ───────────────────────────────────────── */}
-      <Route path="/"         element={<Home />} />
+      <Route path="/"         element={<RootRoute />} />
       <Route path="/overview" element={<Overview />} />
       <Route path="/login"    element={<Login />} />
       <Route path="/register" element={<Register />} />
