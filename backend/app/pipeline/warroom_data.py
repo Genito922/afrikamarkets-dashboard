@@ -133,7 +133,7 @@ def fetch_acled_hdx() -> dict:
         # 1. Récupérer l'URL du CSV via l'API CKAN de HDX
         r = httpx.get(
             "https://data.humdata.org/api/3/action/package_show",
-            params={"id": "acled-data-for-western-africa"},
+            params={"id": "acled-conflict-data"},
             timeout=15,
         )
         r.raise_for_status()

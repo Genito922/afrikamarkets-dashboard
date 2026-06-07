@@ -423,7 +423,7 @@ def _fetch_frankfurter(yf_ticker: str, days: int):
 
     try:
         resp = httpx.get(
-            f"https://api.frankfurter.app/{start}..{end}",
+            f"https://api.frankfurter.dev/v1/{start}..{end}",
             params={"from": base, "to": quote},
             timeout=15,
         )

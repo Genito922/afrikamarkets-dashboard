@@ -36,7 +36,6 @@ async def _fetch_frankfurter() -> dict:
     """
     urls = [
         "https://api.frankfurter.dev/v1/latest",
-        "https://api.frankfurter.app/latest",
     ]
     async with httpx.AsyncClient(timeout=8) as client:
         for url in urls:
