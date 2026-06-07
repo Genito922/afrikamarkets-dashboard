@@ -63,14 +63,10 @@ async def seed_initial_users():
     from backend.app.core.security import hash_password
     from backend.app.core.database import AsyncSessionLocal
     from backend.app.models.models import User, PlanEnum, StatusEnum
-    from sqlalchemy import select, func
+    from sqlalchemy import select
     from datetime import datetime, timedelta
 
     async with AsyncSessionLocal() as s:
-        count = await s.execute(select(func.count()).select_from(User))
-        if count.scalar() > 0:
-            return  # DB déjà peuplée
-
         TESTERS = [
             ("testeur1@afrikamarkets.com", "Test@Afrika1",  "Testeur Un",    "CI", False),
             ("testeur2@afrikamarkets.com", "Test@Afrika2",  "Testeur Deux",  "SN", False),

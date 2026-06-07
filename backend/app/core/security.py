@@ -9,7 +9,7 @@ import os
 import secrets
 import string
 
-SECRET_KEY = os.getenv("SECRET_KEY", "changeme_please_32chars_minimum!!")
+SECRET_KEY = os.getenv("SECRET_KEY", "changeme_please_32chars_minimum!!").strip('"').strip("'")
 ALGORITHM  = os.getenv("JWT_ALGORITHM", "HS256")
 EXPIRE_MIN = int(os.getenv("JWT_EXPIRE_MINUTES", 1440))
 
