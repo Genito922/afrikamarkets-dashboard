@@ -57,6 +57,19 @@ async def health():
     return {"status": "ok", "service": "afrika-markets-intelligence-api", "version": "2.0.0"}
 
 
+@app.post("/admin/seed-history")
+async def force_seed_history(days: int = 40, secret: str = ""):
+    """Déclenche manuellement le seed historique BRVM (admin seulement)."""
+    admin_secret = os.getenv("ADMIN_SECRET", "")
+    if not admin_secret or secret != admin_secret:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Accès refusé")
+    import asyncio
+    from backend.app.pipeline.jobs import job_seed_history
+    asyncio.create_task(job_seed_history(days=days))
+    return {"status": "started", "days": days}
+
+
 async def seed_initial_users():
     """Seed les comptes testeurs au démarrage si la DB est vide."""
     import uuid

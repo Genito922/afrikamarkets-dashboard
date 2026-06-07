@@ -359,14 +359,14 @@ _FRANKFURTER_MAP = {
 # Twelve Data — commodités et indices uniquement (8 tickers, free tier 800/jour, 8/min)
 # Inscription gratuite : https://twelvedata.com/register
 _TWELVE_DATA_MAP = {
-    "CC=F":  "CC1!",    # Cacao futures
-    "KC=F":  "KC1!",    # Café futures
+    "CC=F":  "CACAO",   # Cacao — Twelve Data commodity symbol
+    "KC=F":  "COFFEE",  # Café — Twelve Data commodity symbol
     "GC=F":  "XAU/USD", # Or (forex pair, free tier)
-    "CL=F":  "USO",     # WTI proxy — USO ETF (free tier; commodity pairs hors free tier)
-    "^GSPC": "SPY",     # S&P 500 proxy — SPY ETF (free tier; SPX index hors free tier)
-    "^FCHI": "CAC40",   # CAC 40
-    "GBL=F": "BUND",    # FGBL Bund 10Y
-    "ZN=F":  "TNX",     # US T-Note 10Y yield
+    "CL=F":  "USO",     # WTI proxy — USO ETF (free tier)
+    "^GSPC": "SPY",     # S&P 500 proxy — SPY ETF (free tier)
+    "^FCHI": "CAC40",   # CAC 40 index
+    "GBL=F": "BUND",    # Bund 10Y — peut être hors free tier
+    "ZN=F":  "TNX",     # T-Note 10Y — peut être hors free tier
 }
 
 
