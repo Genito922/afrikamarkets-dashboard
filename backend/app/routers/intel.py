@@ -313,25 +313,18 @@ def _mfi(prices: list, opens: list, volumes: list, period: int = 14) -> list:
     return result
 
 
-# ── Mappings de sources alternatives à Yahoo Finance ─────────
+# ── Sources de données alternatives à Yahoo Finance ──────────
+#
+# Hiérarchie :
+#  1. CoinGecko (crypto)  — gratuit, sans clé, pas de blocage IP
+#  2. Twelve Data          — requiert TWELVE_DATA_KEY (env var Railway)
+#                            Inscription gratuite : twelvedata.com/register
+#                            Free tier : 800 calls/jour, aucune restriction IP
+#
+# Pour activer les commodités, indices et forex :
+#   railway variables set TWELVE_DATA_KEY=<votre_clé>
 
-# Stooq (via pandas_datareader) — commodités, indices, forex
-_STOOQ_MAP = {
-    "CC=F":     "CC.F",    # Cacao futures
-    "KC=F":     "KC.F",    # Café (Coffee) futures
-    "GC=F":     "GC.F",    # Or (Gold) futures
-    "CL=F":     "CL.F",    # WTI Pétrole futures
-    "^GSPC":    "^SPX",    # S&P 500
-    "^FCHI":    "^CAC",    # CAC 40
-    "GBL=F":    "GBL.F",   # FGBL Bund futures
-    "ZN=F":     "ZN.F",    # T-Note 10Y futures
-    "EURUSD=X": "EURUSD",  # EUR/USD
-    "USDCAD=X": "USDCAD",  # USD/CAD
-    "GBPUSD=X": "GBPUSD",  # GBP/USD
-    "USDCHF=X": "USDCHF",  # USD/CHF
-}
-
-# CoinGecko (API REST gratuite, pas de clé) — crypto
+# CoinGecko — crypto uniquement
 _COINGECKO_MAP = {
     "BTC-USD": "bitcoin",
     "ETH-USD": "ethereum",
@@ -339,48 +332,22 @@ _COINGECKO_MAP = {
     "XRP-USD": "ripple",
 }
 
-
-def _fetch_stooq(yf_ticker: str, days: int):
-    """Données OHLCV depuis stooq.com via requête HTTP directe (CSV).
-    Contourne pandas_datareader (incompatible Python 3.12 — distutils manquant).
-    """
-    import io
-    import pandas as pd
-    import requests as _req
-    from datetime import datetime, timedelta
-
-    stooq_ticker = _STOOQ_MAP.get(yf_ticker, yf_ticker)
-    end   = datetime.today()
-    start = end - timedelta(days=days + 60)    # buffer week-ends/fériés
-
-    url = (
-        f"https://stooq.com/q/d/l/"
-        f"?s={stooq_ticker}"
-        f"&d1={start.strftime('%Y%m%d')}"
-        f"&d2={end.strftime('%Y%m%d')}"
-        f"&i=d"
-    )
-    resp = _req.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
-    resp.raise_for_status()
-
-    content = resp.text.strip()
-    if not content or "No data" in content or content.startswith("<"):
-        logger.warning("[stooq] %s → vide/HTML (premiers 120 chars: %s)", stooq_ticker, content[:120])
-        return pd.DataFrame()
-
-    df = pd.read_csv(io.StringIO(content))
-    if "Date" not in df.columns or "Close" not in df.columns:
-        return pd.DataFrame()
-
-    df["Date"] = pd.to_datetime(df["Date"])
-    df = df.set_index("Date").sort_index()
-    # Normaliser les colonnes
-    df = df.rename(columns={c: c.strip() for c in df.columns})
-    for col in ["Open", "High", "Low", "Close", "Volume"]:
-        if col not in df.columns:
-            df[col] = df.get("Close", 0)
-    df = df.tail(days)
-    return df
+# Twelve Data — commodités, indices, forex
+# Inscription gratuite : https://twelvedata.com/register
+_TWELVE_DATA_MAP = {
+    "CC=F":     "CC1!",       # Cacao (cocoa) futures
+    "KC=F":     "KC1!",       # Café (coffee) futures
+    "GC=F":     "XAU/USD",    # Or (Gold) via forex pair
+    "CL=F":     "WTI/USD",    # WTI Crude Oil
+    "^GSPC":    "SPX",        # S&P 500
+    "^FCHI":    "CAC40",      # CAC 40
+    "GBL=F":    "BUND",       # FGBL Bund 10Y
+    "ZN=F":     "TNX",        # US T-Note 10Y yield
+    "EURUSD=X": "EUR/USD",
+    "USDCAD=X": "USD/CAD",
+    "GBPUSD=X": "GBP/USD",
+    "USDCHF=X": "USD/CHF",
+}
 
 
 def _fetch_coingecko(yf_ticker: str, days: int):
@@ -419,14 +386,64 @@ def _fetch_coingecko(yf_ticker: str, days: int):
     )
 
 
+def _fetch_twelvedata(yf_ticker: str, days: int):
+    """Données OHLCV depuis Twelve Data (requiert TWELVE_DATA_KEY env var).
+    Inscription gratuite 800 calls/jour : https://twelvedata.com/register
+    """
+    import os, httpx, pandas as pd
+
+    api_key = os.getenv("TWELVE_DATA_KEY", "").strip()
+    if not api_key:
+        return pd.DataFrame()
+
+    td_symbol = _TWELVE_DATA_MAP.get(yf_ticker)
+    if not td_symbol:
+        return pd.DataFrame()
+
+    resp = httpx.get(
+        "https://api.twelvedata.com/time_series",
+        params={
+            "symbol":     td_symbol,
+            "interval":   "1day",
+            "outputsize": min(days, 365),
+            "apikey":     api_key,
+        },
+        timeout=20,
+    )
+    resp.raise_for_status()
+    raw = resp.json()
+
+    if raw.get("status") == "error" or "values" not in raw:
+        logger.warning("[twelvedata] %s (%s) — %s", yf_ticker, td_symbol, raw.get("message", "no values"))
+        return pd.DataFrame()
+
+    values = list(reversed(raw["values"]))  # Twelve Data renvoie du plus récent au plus ancien
+    if not values:
+        return pd.DataFrame()
+
+    try:
+        dates  = pd.to_datetime([v["datetime"] for v in values])
+        closes = [float(v["close"]) for v in values]
+        opens  = [float(v.get("open",  v["close"])) for v in values]
+        vols   = [float(v.get("volume", 0) or 0)    for v in values]
+    except (KeyError, ValueError, TypeError) as exc:
+        logger.warning("[twelvedata] parse error %s: %s", yf_ticker, exc)
+        return pd.DataFrame()
+
+    return pd.DataFrame(
+        {"Open": opens, "High": closes, "Low": closes, "Close": closes, "Volume": vols},
+        index=pd.DatetimeIndex(dates),
+    )
+
+
 def _yf_fetch(ticker: str, days: int):
-    """Routeur principal : stooq → CoinGecko selon le ticker.
-    Appelé par le job APScheduler ET comme fallback live depuis les endpoints.
-    Accepte `days` en entier (pas la string period de yfinance).
+    """Routeur principal des données de marché.
+    1. Crypto  → CoinGecko (gratuit, sans clé)
+    2. Autres  → Twelve Data (requiert TWELVE_DATA_KEY dans Railway)
     """
     if ticker in _COINGECKO_MAP:
         return _fetch_coingecko(ticker, days)
-    return _fetch_stooq(ticker, days)
+    return _fetch_twelvedata(ticker, days)
 
 
 @router.get("/international/forex/xof")
