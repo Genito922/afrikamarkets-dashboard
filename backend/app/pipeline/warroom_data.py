@@ -130,28 +130,27 @@ def fetch_acled_hdx() -> dict:
     try:
         import pandas as pd
 
-        # 1. Récupérer l'URL du CSV via l'API CKAN de HDX
-        # Plusieurs slugs candidats — HDX les renomme régulièrement
-        _HDX_SLUGS = [
-            "acled-conflict-data-for-western-africa",
-            "acled-data-for-western-africa",
-            "acled-conflict-data",
-            "acled-data-for-africa",
-            "acled-data",
-        ]
-        r = None
-        for slug in _HDX_SLUGS:
-            _r = httpx.get(
-                "https://data.humdata.org/api/3/action/package_show",
-                params={"id": slug},
-                timeout=15,
-            )
-            if _r.status_code == 200 and _r.json().get("success"):
-                r = _r
-                logger.info("[ACLED/HDX] Package trouvé : %s", slug)
-                break
-        if r is None:
-            raise ValueError("Aucun package ACLED trouvé sur HDX")
+        # 1. Découvrir le package ACLED via la recherche CKAN (slug change régulièrement)
+        search_r = httpx.get(
+            "https://data.humdata.org/api/3/action/package_search",
+            params={"q": "acled western africa", "rows": 5},
+            timeout=15,
+        )
+        search_r.raise_for_status()
+        results = search_r.json().get("result", {}).get("results", [])
+        pkg = next(
+            (p for p in results if "acled" in p.get("name", "").lower()),
+            None,
+        )
+        if not pkg:
+            raise ValueError("Aucun package ACLED trouvé via HDX search")
+        logger.info("[ACLED/HDX] Package découvert : %s", pkg["name"])
+        r = httpx.get(
+            "https://data.humdata.org/api/3/action/package_show",
+            params={"id": pkg["name"]},
+            timeout=15,
+        )
+        r.raise_for_status()
         resources = r.json().get("result", {}).get("resources", [])
         csv_url = next(
             (res["url"] for res in resources if res.get("format", "").upper() == "CSV"),
@@ -194,7 +193,7 @@ def fetch_acled_hdx() -> dict:
         return counts
 
     except Exception as exc:
-        logger.warning("[ACLED/HDX] Échec (%s) — fallback statique", exc)
+        logger.debug("[ACLED/HDX] Échec (%s) — fallback statique", exc)
         return _ACLED_FALLBACK.copy()
 
 
