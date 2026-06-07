@@ -89,10 +89,25 @@ RISK_COLOR = {1: "#00CC66", 2: "#22c55e", 3: "#84cc16", 4: "#eab308",
 
 
 @router.get("/warroom")
-async def get_warroom():
-    out = []
-    for c in UEMOA_DATA:
-        out.append({**c, "risk_color": RISK_COLOR.get(c["risque"], "#888888")})
+async def get_warroom(db: AsyncSession = Depends(get_db)):
+    """Données géopolitiques UEMOA — DB-first (IMF + WorldBank + HDX/ACLED), fallback statique."""
+    cached = await db.get(IntlMarketCache, "WARROOM_UEMOA")
+    if cached:
+        try:
+            payload = json.loads(cached.data_json)
+            data = payload.get("data", [])
+            if data:
+                out = [{**c, "risk_color": RISK_COLOR.get(c["risque"], "#888888")} for c in data]
+                return {
+                    "source":     payload.get("source", "IMF+WorldBank+HDX_ACLED"),
+                    "updated_at": payload.get("updated_at", cached.fetched_at.isoformat()),
+                    "data":       out,
+                }
+        except Exception as exc:
+            logger.warning("[warroom] Erreur lecture cache DB : %s", exc)
+
+    # Fallback données statiques
+    out = [{**c, "risk_color": RISK_COLOR.get(c["risque"], "#888888")} for c in UEMOA_DATA]
     return {"source": "static+IMF_2025", "updated_at": "2025-06-01", "data": out}
 
 

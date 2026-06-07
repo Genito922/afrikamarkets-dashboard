@@ -1,6 +1,7 @@
 """
 Pipeline Jobs — scrape BRVM + persist PostgreSQL/SQLite
                 pré-fetch marchés internationaux (yfinance) → intl_market_cache
+                war room UEMOA (IMF + World Bank + HDX/ACLED) → intl_market_cache
 """
 import json
 import logging
@@ -268,3 +269,42 @@ async def job_prefetch_international() -> None:
             await asyncio.sleep(3)
 
     logger.info("[IntlFetch] Terminé — %d OK / %d KO", ok, ko)
+
+
+# ── War Room UEMOA ────────────────────────────────────────────
+
+async def job_warroom() -> None:
+    """
+    Construit le payload War Room (IMF + World Bank + HDX/ACLED)
+    et l'upsert dans intl_market_cache sous la clé 'WARROOM_UEMOA'.
+    Planifié : lundi 06h00 UTC + run initial au boot.
+    """
+    from backend.app.pipeline.warroom_data import build_warroom_payload
+
+    logger.info("[WarRoom] Démarrage mise à jour données réelles")
+    try:
+        data = await build_warroom_payload()
+        payload = json.dumps({
+            "updated_at": datetime.utcnow().isoformat(),
+            "source":     "IMF+WorldBank+HDX_ACLED",
+            "data":       data,
+        })
+
+        async with AsyncSessionLocal() as session:
+            existing = await session.get(IntlMarketCache, "WARROOM_UEMOA")
+            if existing:
+                existing.fetched_at = datetime.utcnow()
+                existing.data_json  = payload
+            else:
+                session.add(IntlMarketCache(
+                    ticker     = "WARROOM_UEMOA",
+                    fetched_at = datetime.utcnow(),
+                    data_json  = payload,
+                ))
+            await session.commit()
+
+        logger.info("[WarRoom] ✓ Données UEMOA mises à jour (%d pays)", len(data))
+
+    except Exception as exc:
+        import traceback
+        logger.error("[WarRoom] ✗ %s: %s\n%s", type(exc).__name__, exc, traceback.format_exc())

@@ -15,7 +15,7 @@ scheduler = AsyncIOScheduler(timezone="UTC")
 
 
 def start_scheduler() -> None:
-    from backend.app.pipeline.jobs import job_scrape_market, job_prefetch_international
+    from backend.app.pipeline.jobs import job_scrape_market, job_prefetch_international, job_warroom
 
     # ── BRVM : toutes les 15 min (lun-ven 09h-17h UTC) ───────
     scheduler.add_job(
@@ -48,9 +48,28 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── War Room UEMOA : chaque lundi 06h05 UTC ───────────────
+    scheduler.add_job(
+        job_warroom,
+        trigger=CronTrigger(day_of_week="mon", hour="6", minute="5", timezone="UTC"),
+        id="warroom_weekly",
+        name="War Room UEMOA (IMF + WorldBank + HDX/ACLED)",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
+    # ── War Room initial 90s après démarrage ──────────────────
+    scheduler.add_job(
+        job_warroom,
+        trigger=DateTrigger(run_date=datetime.utcnow() + timedelta(seconds=90)),
+        id="warroom_boot",
+        name="War Room UEMOA (boot)",
+        replace_existing=True,
+    )
+
     scheduler.start()
     logger.info(
-        "[Scheduler] Démarré — BRVM 15 min (lun-ven) · Intl 6h (boot+60s)"
+        "[Scheduler] Démarré — BRVM 15 min (lun-ven) · Intl 6h · WarRoom lundi (boot+90s)"
     )
 
 
