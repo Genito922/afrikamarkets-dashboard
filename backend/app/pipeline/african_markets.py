@@ -1,9 +1,12 @@
 """
-African-Markets.com scraper — données BRVM complémentaires
-  • fetch_brvm_listed()       → 47 titres BRVM : cours, variation, P/E, secteur
-  • fetch_company_profile()   → annonces, dividendes, rapports annuels par ticker
-  • fetch_currencies()        → taux XOF/USD + 17 devises africaines
-  • fetch_brvm_news()         → actualités marché BRVM
+African-Markets.com scraper — données BRVM + autres marchés africains
+  • fetch_brvm_listed()          → 47 titres BRVM : cours, variation, P/E, secteur
+  • fetch_company_profile()      → annonces, dividendes, rapports annuels par ticker
+  • fetch_currencies()           → taux XOF/USD + 17 devises africaines
+  • fetch_brvm_news()            → actualités marché BRVM
+  • fetch_exchange_listed(slug)  → titres cotés sur une autre bourse africaine
+  • AFRICAN_EXCHANGES            → catalogue des bourses africaines (meta + SGI)
+  • AFRICAN_SGIS                 → annuaire SGI/brokers par bourse
 
 Authentification : AM_EMAIL / AM_PASSWORD (vars Railway).
 Session Joomla stockée en mémoire (refresh auto si 401/403).
@@ -379,4 +382,219 @@ def fetch_brvm_news(limit: int = 20) -> list[dict]:
             break
 
     logger.info("[AM] fetch_brvm_news → %d articles", len(results))
+    return results
+
+
+# ── Catalogue bourses africaines ──────────────────────────────────────────────
+
+AFRICAN_EXCHANGES = [
+    {
+        "slug": "brvm",  "nom": "BRVM",  "nom_long": "Bourse Régionale des Valeurs Mobilières",
+        "pays": "UEMOA (8 pays)", "iso2": "CI", "flag": "🌍", "ville": "Abidjan",
+        "devise": "XOF", "yf_index": None,
+        "cap_usd_b": 15, "nb_societes": 47, "fondee": 1998,
+        "description": "Bourse régionale couvrant 8 pays UEMOA. Spécialité : finance, agro-industrie, télécoms.",
+        "url": "https://www.brvm.org",
+        "am_slug": "brvm",
+    },
+    {
+        "slug": "jse",   "nom": "JSE",   "nom_long": "Johannesburg Stock Exchange",
+        "pays": "Afrique du Sud", "iso2": "ZA", "flag": "🇿🇦", "ville": "Johannesburg",
+        "devise": "ZAR", "yf_index": "EZA",
+        "cap_usd_b": 1050, "nb_societes": 340, "fondee": 1887,
+        "description": "Plus grande bourse d'Afrique. Hub minier (or, platine), banques, industrie. Accès aux marchés dérivés.",
+        "url": "https://www.jse.co.za",
+        "am_slug": "jse",
+    },
+    {
+        "slug": "ngx",   "nom": "NGX",   "nom_long": "Nigerian Exchange Group",
+        "pays": "Nigeria", "iso2": "NG", "flag": "🇳🇬", "ville": "Lagos",
+        "devise": "NGN", "yf_index": "^NGSEINDEX",
+        "cap_usd_b": 55, "nb_societes": 155, "fondee": 1960,
+        "description": "Bourse de la plus grande économie africaine. Secteurs : banques, télécoms, pétrolier, ciment.",
+        "url": "https://ngxgroup.com",
+        "am_slug": "nse",
+    },
+    {
+        "slug": "gse",   "nom": "GSE",   "nom_long": "Ghana Stock Exchange",
+        "pays": "Ghana", "iso2": "GH", "flag": "🇬🇭", "ville": "Accra",
+        "devise": "GHS", "yf_index": "^GGSECI",
+        "cap_usd_b": 12, "nb_societes": 35, "fondee": 1990,
+        "description": "Marché dynamique dopé par l'or et le pétrole. MFRS en forte croissance.",
+        "url": "https://gse.com.gh",
+        "am_slug": "gse",
+    },
+    {
+        "slug": "nse",   "nom": "NSE",   "nom_long": "Nairobi Securities Exchange",
+        "pays": "Kenya", "iso2": "KE", "flag": "🇰🇪", "ville": "Nairobi",
+        "devise": "KES", "yf_index": "^NBI",
+        "cap_usd_b": 25, "nb_societes": 65, "fondee": 1954,
+        "description": "Hub financier est-africain. Forte présence banques, télécoms (Safaricom), agro.",
+        "url": "https://www.nse.co.ke",
+        "am_slug": "nse-kenya",
+    },
+    {
+        "slug": "egx",   "nom": "EGX",   "nom_long": "Egyptian Exchange",
+        "pays": "Égypte", "iso2": "EG", "flag": "🇪🇬", "ville": "Le Caire",
+        "devise": "EGP", "yf_index": "^CASE",
+        "cap_usd_b": 45, "nb_societes": 215, "fondee": 1883,
+        "description": "Une des plus anciennes bourses d'Afrique. Forte liquidité, secteurs diversifiés.",
+        "url": "https://www.egx.com.eg",
+        "am_slug": "egx",
+    },
+    {
+        "slug": "bvc",   "nom": "BVC",   "nom_long": "Bourse des Valeurs de Casablanca",
+        "pays": "Maroc", "iso2": "MA", "flag": "🇲🇦", "ville": "Casablanca",
+        "devise": "MAD", "yf_index": None,
+        "cap_usd_b": 65, "nb_societes": 75, "fondee": 1929,
+        "description": "2e bourse africaine. Hub financier Nord-Afrique. Banques, immobilier, BTP, télécoms.",
+        "url": "https://www.casablanca-bourse.com",
+        "am_slug": "bvc",
+    },
+    {
+        "slug": "bvmt",  "nom": "BVMT",  "nom_long": "Bourse des Valeurs Mobilières de Tunis",
+        "pays": "Tunisie", "iso2": "TN", "flag": "🇹🇳", "ville": "Tunis",
+        "devise": "TND", "yf_index": None,
+        "cap_usd_b": 10, "nb_societes": 82, "fondee": 1969,
+        "description": "Marché mature en Afrique du Nord. Banques, leasing, assurances dominants.",
+        "url": "https://www.bvmt.com.tn",
+        "am_slug": "bvmt",
+    },
+    {
+        "slug": "dse",   "nom": "DSE",   "nom_long": "Dar es Salaam Stock Exchange",
+        "pays": "Tanzanie", "iso2": "TZ", "flag": "🇹🇿", "ville": "Dar es Salaam",
+        "devise": "TZS", "yf_index": None,
+        "cap_usd_b": 8, "nb_societes": 30, "fondee": 1996,
+        "description": "Marché est-africain en croissance. Cotations cross-listées avec NSE Kenya.",
+        "url": "https://www.dse.co.tz",
+        "am_slug": "dse",
+    },
+]
+
+# Index rapide slug → exchange
+EXCHANGE_BY_SLUG = {e["slug"]: e for e in AFRICAN_EXCHANGES}
+
+
+# ── Annuaire SGI par bourse ───────────────────────────────────────────────────
+
+AFRICAN_SGIS: dict[str, list[dict]] = {
+    "brvm": [
+        {"nom": "NSIA Finance",           "pays": "Côte d'Ivoire", "courtage": "0.80%", "depot_min_xof": 100_000, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.nsiafinance.com",          "note": 8.6},
+        {"nom": "Hudson & Cie",           "pays": "Côte d'Ivoire", "courtage": "0.70%", "depot_min_xof": 500_000, "en_ligne": False, "app": False, "diaspora": False, "url": "https://www.hudsonetcie.com",          "note": 8.5},
+        {"nom": "CGF Bourse",             "pays": "Côte d'Ivoire", "courtage": "0.65%", "depot_min_xof": 50_000,  "en_ligne": True,  "app": False, "diaspora": False, "url": "https://www.cgfbourse.com",            "note": 8.2},
+        {"nom": "BOA Capital Securities", "pays": "Mali",           "courtage": "0.85%", "depot_min_xof": 100_000, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.boacapitalsecurities.com", "note": 8.0},
+        {"nom": "Africabourse",           "pays": "Côte d'Ivoire", "courtage": "0.72%", "depot_min_xof": 50_000,  "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.africabourse.net",         "note": 7.9},
+        {"nom": "Coris Bourse",           "pays": "Burkina Faso",   "courtage": "0.75%", "depot_min_xof": 75_000,  "en_ligne": True,  "app": False, "diaspora": True,  "url": "https://www.corisbourse.com",          "note": 7.7},
+        {"nom": "Impaxis Securities",     "pays": "Sénégal",        "courtage": "0.80%", "depot_min_xof": 150_000, "en_ligne": True,  "app": False, "diaspora": True,  "url": "https://www.impaxis.com",              "note": 7.8},
+        {"nom": "Sogebourse",             "pays": "Côte d'Ivoire", "courtage": "0.90%", "depot_min_xof": 200_000, "en_ligne": False, "app": False, "diaspora": False, "url": "https://www.sogebourse.sn",            "note": 7.4},
+    ],
+    "jse": [
+        {"nom": "PSG Securities",                   "pays": "Afrique du Sud", "courtage": "0.50%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.psg.co.za",                   "note": 8.8},
+        {"nom": "FNB Share Investing",              "pays": "Afrique du Sud", "courtage": "0.25%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": False, "url": "https://www.fnb.co.za",                   "note": 8.5},
+        {"nom": "Standard Bank Online Trading",     "pays": "Afrique du Sud", "courtage": "0.40%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": False, "url": "https://www.standardbank.co.za",          "note": 8.3},
+        {"nom": "Absa Stockbrokers",                "pays": "Afrique du Sud", "courtage": "0.35%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": False, "url": "https://www.absa.co.za",                  "note": 8.1},
+        {"nom": "EasyEquities",                     "pays": "Afrique du Sud", "courtage": "0.25%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.easyequities.co.za",          "note": 9.1},
+        {"nom": "Investec Wealth & Investment",     "pays": "Afrique du Sud", "courtage": "0.60%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.investec.com",                "note": 8.7},
+    ],
+    "ngx": [
+        {"nom": "Stanbic IBTC Stockbrokers",  "pays": "Nigeria", "courtage": "0.75%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.stanbicibtc.com",    "note": 8.6},
+        {"nom": "CardinalStone Securities",   "pays": "Nigeria", "courtage": "0.80%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://cardinalstone.com",      "note": 8.4},
+        {"nom": "Meristem Securities",        "pays": "Nigeria", "courtage": "0.75%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.meristemng.com",     "note": 8.2},
+        {"nom": "Coronation Securities",      "pays": "Nigeria", "courtage": "0.80%", "depot_min_xof": None, "en_ligne": True,  "app": False, "diaspora": False, "url": "https://www.coronationmb.com",   "note": 8.0},
+        {"nom": "ARM Securities",             "pays": "Nigeria", "courtage": "0.75%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.armsecurities.com",  "note": 8.3},
+        {"nom": "Vetiva Securities",          "pays": "Nigeria", "courtage": "0.75%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": False, "url": "https://www.vetiva.com",          "note": 7.9},
+    ],
+    "gse": [
+        {"nom": "Databank Brokerage",      "pays": "Ghana", "courtage": "1.00%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.databankgroup.com", "note": 8.7},
+        {"nom": "EDC Securities",          "pays": "Ghana", "courtage": "0.90%", "depot_min_xof": None, "en_ligne": True,  "app": False, "diaspora": False, "url": "https://www.edcghana.com",      "note": 7.9},
+        {"nom": "Gold Coast Securities",   "pays": "Ghana", "courtage": "1.00%", "depot_min_xof": None, "en_ligne": True,  "app": False, "diaspora": True,  "url": "https://www.goldcoastsec.com",  "note": 7.7},
+        {"nom": "Republic Securities",     "pays": "Ghana", "courtage": "0.95%", "depot_min_xof": None, "en_ligne": True,  "app": False, "diaspora": False, "url": "https://www.republicsec.com",   "note": 7.5},
+        {"nom": "IC Securities",           "pays": "Ghana", "courtage": "0.85%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.icsecurities.com",  "note": 8.1},
+    ],
+    "nse": [
+        {"nom": "Standard Investment Bank", "pays": "Kenya", "courtage": "2.10%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.sib.co.ke",       "note": 8.5},
+        {"nom": "Faida Securities",         "pays": "Kenya", "courtage": "2.10%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.faidasecurities.com", "note": 8.2},
+        {"nom": "Dyer & Blair",             "pays": "Kenya", "courtage": "2.10%", "depot_min_xof": None, "en_ligne": True,  "app": False, "diaspora": False, "url": "https://www.dyerandblair.com", "note": 8.0},
+        {"nom": "Old Mutual Securities KE", "pays": "Kenya", "courtage": "2.10%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.oldmutual.co.ke",  "note": 8.3},
+        {"nom": "Genghis Capital",          "pays": "Kenya", "courtage": "2.10%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": False, "url": "https://www.genghiscapital.co.ke", "note": 7.8},
+    ],
+    "egx": [
+        {"nom": "EFG Hermes",           "pays": "Égypte", "courtage": "0.50%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.efghermes.com",      "note": 9.0},
+        {"nom": "CI Capital",           "pays": "Égypte", "courtage": "0.45%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.cicapital.com.eg",   "note": 8.6},
+        {"nom": "Beltone Financial",    "pays": "Égypte", "courtage": "0.50%", "depot_min_xof": None, "en_ligne": True,  "app": False, "diaspora": False, "url": "https://www.beltone.com.eg",     "note": 8.3},
+        {"nom": "Pharos Securities",    "pays": "Égypte", "courtage": "0.50%", "depot_min_xof": None, "en_ligne": True,  "app": False, "diaspora": False, "url": "https://www.pharossecurities.com", "note": 8.0},
+        {"nom": "Arqaam Capital",       "pays": "Égypte", "courtage": "0.60%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.arqaamcapital.com",  "note": 8.5},
+    ],
+    "bvc": [
+        {"nom": "CDG Capital Bourse",              "pays": "Maroc", "courtage": "0.30%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.cdgcapitalbourse.ma",       "note": 8.7},
+        {"nom": "CFG Marchés",                     "pays": "Maroc", "courtage": "0.35%", "depot_min_xof": None, "en_ligne": True,  "app": False, "diaspora": False, "url": "https://www.cfg.ma",                    "note": 8.4},
+        {"nom": "Attijari Intermédiation",         "pays": "Maroc", "courtage": "0.25%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.attijaribawafa.com",        "note": 8.8},
+        {"nom": "BMCE Capital Bourse",             "pays": "Maroc", "courtage": "0.30%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.bmcecapital.com",           "note": 8.5},
+        {"nom": "Société Générale Marocaine Bourse","pays": "Maroc", "courtage": "0.35%", "depot_min_xof": None, "en_ligne": True,  "app": False, "diaspora": False, "url": "https://www.sgmaroc.com",               "note": 8.1},
+    ],
+    "bvmt": [
+        {"nom": "Attijari Bourse",     "pays": "Tunisie", "courtage": "0.50%", "depot_min_xof": None, "en_ligne": True,  "app": True,  "diaspora": True,  "url": "https://www.attijaribourse.com.tn", "note": 8.5},
+        {"nom": "Tunisie Valeurs",     "pays": "Tunisie", "courtage": "0.50%", "depot_min_xof": None, "en_ligne": True,  "app": False, "diaspora": False, "url": "https://www.tunisievaleurs.com",    "note": 8.3},
+        {"nom": "BNA Capitaux",        "pays": "Tunisie", "courtage": "0.55%", "depot_min_xof": None, "en_ligne": True,  "app": False, "diaspora": False, "url": "https://www.bnacapitaux.com.tn",    "note": 7.9},
+        {"nom": "Amen Invest",         "pays": "Tunisie", "courtage": "0.50%", "depot_min_xof": None, "en_ligne": True,  "app": False, "diaspora": False, "url": "https://www.ameninvest.com.tn",     "note": 7.8},
+        {"nom": "MAC SA",              "pays": "Tunisie", "courtage": "0.55%", "depot_min_xof": None, "en_ligne": True,  "app": False, "diaspora": False, "url": "https://www.mac-sa.com.tn",         "note": 7.6},
+    ],
+    "dse": [
+        {"nom": "CORE Securities",    "pays": "Tanzanie", "courtage": "1.00%", "depot_min_xof": None, "en_ligne": False, "app": False, "diaspora": False, "url": "https://www.coresecurities.co.tz", "note": 7.5},
+        {"nom": "Orbit Securities",   "pays": "Tanzanie", "courtage": "1.00%", "depot_min_xof": None, "en_ligne": False, "app": False, "diaspora": False, "url": "https://www.orbit.co.tz",           "note": 7.3},
+        {"nom": "Vertex International","pays": "Tanzanie", "courtage": "1.00%", "depot_min_xof": None, "en_ligne": False, "app": False, "diaspora": False, "url": "https://www.vertextz.com",          "note": 7.1},
+    ],
+}
+
+
+# ── fetch_exchange_listed ─────────────────────────────────────────────────────
+
+def fetch_exchange_listed(slug: str) -> list[dict]:
+    """
+    Scrape les titres cotés sur une bourse africaine via african-markets.com.
+    Utilise le am_slug du catalogue AFRICAN_EXCHANGES.
+    Retourne [{symbole, nom, cours, variation_pct, ytd_pct, pe_ratio, devise}].
+    """
+    exchange = EXCHANGE_BY_SLUG.get(slug)
+    if not exchange:
+        logger.warning("[AM] fetch_exchange_listed: slug inconnu '%s'", slug)
+        return []
+    am_slug = exchange.get("am_slug", slug)
+    devise  = exchange.get("devise", "")
+
+    try:
+        soup = _get(f"/fr/bourse/{am_slug}/listed-companies")
+    except Exception as exc:
+        logger.error("[AM] fetch_exchange_listed(%s) — %s", slug, exc)
+        return []
+
+    results = []
+    for table in soup.find_all("table"):
+        headers = [_text(th).lower() for th in table.find_all("th")]
+        if not any(h in ("cours", "price", "last price", "dernier cours") for h in headers):
+            continue
+        for tr in table.find_all("tr")[1:]:
+            cols = tr.find_all("td")
+            if len(cols) < 3:
+                continue
+            link_tag = tr.find("a", href=True)
+            symbole  = ""
+            if link_tag:
+                m = re.search(r"[?&]code=([A-Z0-9\.]+)", link_tag["href"])
+                if m:
+                    symbole = m.group(1)
+            texts = [_text(c) for c in cols]
+            results.append({
+                "symbole":       symbole,
+                "nom":           texts[0],
+                "cours":         _num(texts[2]) if len(texts) > 2 else None,
+                "variation_pct": _num(texts[3]) if len(texts) > 3 else None,
+                "ytd_pct":       _num(texts[4]) if len(texts) > 4 else None,
+                "pe_ratio":      _num(texts[5]) if len(texts) > 5 else None,
+                "devise":        devise,
+            })
+        if results:
+            break
+
+    logger.info("[AM] fetch_exchange_listed(%s) → %d titres", slug, len(results))
     return results

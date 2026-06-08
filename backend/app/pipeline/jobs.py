@@ -22,9 +22,15 @@ logger = logging.getLogger(__name__)
 # Tous les tickers à pré-fetcher (même liste que MarchesInternationaux.jsx)
 INTL_TICKERS = [
     "CC=F",     "KC=F",     "GC=F",     "CL=F",       # Commodités
-    "^GSPC",    "^FCHI",    "GBL=F",    "ZN=F",        # Indices
+    "^GSPC",    "^FCHI",    "GBL=F",    "ZN=F",        # Indices monde
     "EURUSD=X", "USDCAD=X", "GBPUSD=X", "USDCHF=X",   # Forex
     "BTC-USD",  "ETH-USD",  "BNB-USD",  "XRP-USD",     # Crypto
+    # Marchés africains (yfinance)
+    "EZA",        # JSE South Africa — iShares MSCI SA ETF
+    "^NGSEINDEX", # NGX Nigeria
+    "^GGSECI",    # GSE Ghana
+    "^NBI",       # NSE Kenya
+    "^CASE",      # EGX 30 Egypt
 ]
 
 
