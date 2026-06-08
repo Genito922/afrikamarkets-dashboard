@@ -13,11 +13,11 @@
  * Conformité : langue neutre "signal" vs "recommandation d'achat",
  *              disclaimer non-affiliation BRVM visible sur toute la page.
  */
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { apiGet } from "../lib/api";
 import ComplianceBanner from "../components/ComplianceBanner";
+import MarketMoodWidget from "../components/MarketMoodWidget";
 
 // ── Logo inline ───────────────────────────────────────────────
 
@@ -36,96 +36,6 @@ function Logo({ size = "md" }) {
           Afrika<span className="text-emerald-400">Markets</span>
         </p>
         <p className={`${s.sub} text-gray-500 leading-none`}>Intelligence</p>
-      </div>
-    </div>
-  );
-}
-
-// ── Market Mood Widget ────────────────────────────────────────
-
-function MarketMoodWidget() {
-  const [mood, setMood]     = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    apiGet("/market/mood")
-      .then(setMood)
-      .catch(() => setMood(null))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-gray-900/60 border border-gray-800 animate-pulse">
-        <div className="w-3 h-3 rounded-full bg-gray-700" />
-        <div className="h-4 w-32 bg-gray-800 rounded" />
-      </div>
-    );
-  }
-
-  if (!mood || mood.no_data) {
-    return (
-      <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-gray-900/60 border border-gray-800">
-        <span className="w-3 h-3 rounded-full bg-gray-600" />
-        <span className="text-sm text-gray-500">Données de marché en cours d'initialisation</span>
-      </div>
-    );
-  }
-
-  const MOOD_ICON = {
-    bull: "▲▲", bull_mild: "▲", neutral: "—", bear_mild: "▼", bear: "▼▼",
-  };
-
-  return (
-    <div
-      className="flex flex-wrap items-center gap-4 px-5 py-3 rounded-2xl border transition-all"
-      style={{ background: mood.color + "0d", borderColor: mood.color + "33" }}
-    >
-      {/* Indicateur principal */}
-      <div className="flex items-center gap-2.5">
-        <div className="relative">
-          <span
-            className="w-3 h-3 rounded-full block"
-            style={{ background: mood.color, boxShadow: `0 0 8px ${mood.color}80` }}
-          />
-          {(mood.mood === "bull" || mood.mood === "bear") && (
-            <span
-              className="absolute inset-0 rounded-full animate-ping"
-              style={{ background: mood.color, opacity: 0.3 }}
-            />
-          )}
-        </div>
-        <span className="text-sm font-bold" style={{ color: mood.color }}>
-          {MOOD_ICON[mood.mood]} {mood.label}
-        </span>
-      </div>
-
-      <div className="w-px h-4 bg-gray-700 hidden sm:block" />
-
-      {/* Composite */}
-      {mood.composite_var !== null && (
-        <div className="text-xs text-gray-400">
-          BRVM Composite{" "}
-          <span className="font-mono font-semibold" style={{ color: mood.color }}>
-            {mood.composite_var >= 0 ? "+" : ""}{mood.composite_var?.toFixed(2)}%
-          </span>
-        </div>
-      )}
-
-      <div className="w-px h-4 bg-gray-700 hidden sm:block" />
-
-      {/* Breadth */}
-      <div className="text-xs text-gray-400">
-        <span className="text-green-400 font-semibold">{mood.breadth.nb_up}↑</span>
-        {" · "}
-        <span className="text-red-400 font-semibold">{mood.breadth.nb_down}↓</span>
-        {" · "}
-        <span className="text-gray-500">{mood.breadth.nb_stable}=</span>
-        <span className="text-gray-600 ml-1">titres</span>
-      </div>
-
-      <div className="ml-auto text-xs text-gray-600 hidden sm:block">
-        ↻ 15 min
       </div>
     </div>
   );

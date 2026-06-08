@@ -662,3 +662,151 @@ async def get_international_ticker(
     except Exception as exc:
         logger.error("[international] %s — %s: %s", ticker, type(exc).__name__, exc)
         raise HTTPException(503, detail="Données temporairement indisponibles — cache en cours de population. Réessayez dans 2 minutes.")
+
+
+# ── Decision Context — non-conseil ───────────────────────────
+
+def _allocations_for(regime: str, score: int) -> dict:
+    """
+    Allocations indicatives par profil selon régime + score.
+    Toutes valeurs en % — illustratif uniquement, non-conseil.
+    """
+    # Matrice (actions_brvm, obligations_uemoa, monetaire)
+    MATRIX = {
+        # regime -> {score_range -> (prudent, equilibre, dynamique)}
+        "trending_up": {
+            "pos": ((20, 55, 25), (45, 35, 20), (70, 20, 10)),
+            "neu": ((15, 55, 30), (35, 40, 25), (55, 30, 15)),
+            "neg": ((10, 55, 35), (25, 45, 30), (40, 40, 20)),
+        },
+        "trending_down": {
+            "pos": ((10, 55, 35), (25, 45, 30), (40, 40, 20)),
+            "neu": ((8, 57, 35),  (20, 50, 30), (35, 42, 23)),
+            "neg": ((5, 60, 35),  (15, 55, 30), (30, 45, 25)),
+        },
+        "volatile": {
+            "pos": ((12, 50, 38), (28, 42, 30), (45, 35, 20)),
+            "neu": ((10, 50, 40), (22, 43, 35), (38, 37, 25)),
+            "neg": ((7, 53, 40),  (18, 47, 35), (30, 42, 28)),
+        },
+        "sideways": {
+            "pos": ((15, 55, 30), (35, 40, 25), (55, 30, 15)),
+            "neu": ((12, 55, 33), (28, 42, 30), (45, 35, 20)),
+            "neg": ((8, 57, 35),  (20, 48, 32), (35, 40, 25)),
+        },
+        "low_liquidity": {
+            "pos": ((10, 55, 35), (22, 48, 30), (38, 40, 22)),
+            "neu": ((8, 55, 37),  (18, 47, 35), (32, 43, 25)),
+            "neg": ((5, 55, 40),  (12, 52, 36), (25, 47, 28)),
+        },
+    }
+    band = "pos" if score >= 1 else ("neg" if score <= -1 else "neu")
+    r = MATRIX.get(regime, MATRIX["sideways"])[band]
+
+    def _profile(alloc, name, note):
+        a, o, m = alloc
+        return {"nom": name, "actions_brvm": a, "obligations_uemoa": o, "monetaire": m, "note": note}
+
+    notes = {
+        "prudent":    "Priorité à la préservation du capital. Exposition actions limitée.",
+        "equilibre":  "Diversification équilibrée. Exposition modérée aux actions BRVM.",
+        "dynamique":  "Recherche de performance. Exposition actions significative.",
+    }
+    return {
+        "prudent":   _profile(r[0], "Prudent",   notes["prudent"]),
+        "equilibre": _profile(r[1], "Équilibré", notes["equilibre"]),
+        "dynamique": _profile(r[2], "Dynamique", notes["dynamique"]),
+    }
+
+
+def _build_scenarios(regime: str, score: int, composite_var: float | None) -> list:
+    """Scénarios court-terme selon régime."""
+    scenarios = []
+    if regime == "trending_up" and score >= 2:
+        scenarios.append({
+            "type": "haussier", "prob": 60,
+            "titre": "Continuation de la tendance",
+            "detail": "Le momentum positif et la largeur du marché suggèrent une poursuite de la hausse à court terme.",
+        })
+        scenarios.append({
+            "type": "neutre", "prob": 30,
+            "titre": "Consolidation technique",
+            "detail": "Possible pause technique après la hausse. Les niveaux de support MA16/MA19 serviront de référence.",
+        })
+    elif regime == "trending_down" and score <= -2:
+        scenarios.append({
+            "type": "baissier", "prob": 55,
+            "titre": "Poursuite de la correction",
+            "detail": "La tendance baissière et la largeur négative du marché maintiennent la pression vendeuse.",
+        })
+        scenarios.append({
+            "type": "neutre", "prob": 30,
+            "titre": "Rebond technique",
+            "detail": "Un rebond de court terme est possible sur les niveaux de support. Ne constitue pas un signal d'achat.",
+        })
+    elif regime == "volatile":
+        scenarios.append({
+            "type": "volatile", "prob": 50,
+            "titre": "Volatilité persistante",
+            "detail": "Les signaux contradictoires maintiennent l'incertitude. Attendre une clarification directionnelle.",
+        })
+        scenarios.append({
+            "type": "haussier", "prob": 25,
+            "titre": "Résolution haussière",
+            "detail": "Une résolution vers la hausse est possible si les volumes confirment.",
+        })
+    else:
+        scenarios.append({
+            "type": "neutre", "prob": 50,
+            "titre": "Consolidation latérale",
+            "detail": "Le marché cherche une direction. Surveiller les volumes et la variation BRVM Composite.",
+        })
+        scenarios.append({
+            "type": "haussier" if score >= 0 else "baissier", "prob": 30,
+            "titre": "Émergence d'une tendance",
+            "detail": "Un catalyseur macro ou sectoriel pourrait initier une nouvelle tendance directionnelle.",
+        })
+    return scenarios
+
+
+@router.get("/decision-context")
+async def get_decision_context(db: AsyncSession = Depends(get_db)):
+    """
+    Contexte décisionnel non-conseil — synthèse marché + allocations indicatives.
+
+    ⚠ IMPORTANT LÉGAL : Les allocations présentées sont INDICATIVES et ILLUSTRATIVES.
+    Elles ne constituent pas une recommandation d'investissement ni un conseil financier.
+    Tout investissement doit être précédé d'une analyse personnalisée par un professionnel agréé AMF-UMOA.
+    """
+    from backend.app.pipeline.mood_engine import compute_market_mood
+
+    mood_data = await compute_market_mood(db)
+
+    regime   = mood_data.get("regime", {}).get("type", "sideways")
+    score    = mood_data.get("score", 0)
+    comp_var = mood_data.get("composite_var")
+
+    allocations = _allocations_for(regime, score)
+    scenarios   = _build_scenarios(regime, score, comp_var)
+
+    # Niveaux de vigilance
+    if score >= 3 or score <= -3:
+        vigilance = {"niveau": "élevé", "color": "#ef4444", "message": "Signal fort — vérifier la thèse avant toute action."}
+    elif score >= 1 or score <= -1:
+        vigilance = {"niveau": "modéré", "color": "#f59e0b", "message": "Sélectivité recommandée sur les nouvelles positions."}
+    else:
+        vigilance = {"niveau": "faible", "color": "#6b7280", "message": "Marché sans tendance claire — patience conseillée."}
+
+    return {
+        "mood":        mood_data,
+        "allocations": allocations,
+        "scenarios":   scenarios,
+        "vigilance":   vigilance,
+        "disclaimer":  (
+            "Ces allocations sont INDICATIVES et ILLUSTRATIVES uniquement. "
+            "Elles ne constituent pas une recommandation d'investissement. "
+            "Afrika Markets Intelligence n'est pas affilié à la BRVM ni à l'AMF-UMOA. "
+            "Consultez un professionnel agréé avant tout investissement."
+        ),
+        "generated_at": str(mood_data.get("data_date", "N/A")),
+    }

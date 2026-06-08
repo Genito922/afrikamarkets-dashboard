@@ -217,112 +217,12 @@ async def get_sectors(db: AsyncSession = Depends(get_db)):
 @router.get("/mood")
 async def get_market_mood(db: AsyncSession = Depends(get_db)):
     """
-    Humeur du marché BRVM — synthèse temps réel.
-    Score -4..+4 calculé sur :
-      • variation BRVM Composite (principal indice)
-      • breadth : ratio titres en hausse / total
-      • volume relatif vs moyenne 5j
-    Retourne : mood / score / color / label / context / breadth
+    Humeur du marché BRVM — analyse multi-signal niveau 2.
+    Régimes : trending_up / trending_down / volatile / sideways / low_liquidity
+    Score -4..+4 avec pondération dynamique selon régime détecté.
     """
-    from sqlalchemy import func as sa_func
-
-    score   = 0
-    reasons = []
-    breadth = {"nb_up": 0, "nb_down": 0, "nb_stable": 0, "ratio": 0.5}
-    composite_var = None
-    brvm30_var    = None
-
-    # ── 1. Variation BRVM Composite ───────────────────────────
-    latest_idx = await db.execute(
-        select(BrvmIndex.date).order_by(desc(BrvmIndex.date)).limit(1)
-    )
-    latest_idx_date = latest_idx.scalar_one_or_none()
-    if latest_idx_date:
-        idx_res = await db.execute(
-            select(BrvmIndex).where(BrvmIndex.date == latest_idx_date, BrvmIndex.type == "marche")
-        )
-        for idx in idx_res.scalars().all():
-            nom_lower = idx.nom.lower()
-            if "composite" in nom_lower:
-                composite_var = idx.variation
-                if composite_var is not None:
-                    if composite_var > 1.0:
-                        score += 2; reasons.append(f"BRVM Composite +{composite_var:.2f}% (fort rebond)")
-                    elif composite_var > 0:
-                        score += 1; reasons.append(f"BRVM Composite +{composite_var:.2f}% (légère hausse)")
-                    elif composite_var < -1.0:
-                        score -= 2; reasons.append(f"BRVM Composite {composite_var:.2f}% (forte baisse)")
-                    elif composite_var < 0:
-                        score -= 1; reasons.append(f"BRVM Composite {composite_var:.2f}% (légère baisse)")
-            elif "30" in nom_lower or "brvm 30" in nom_lower.replace("-", " "):
-                brvm30_var = idx.variation
-
-    # ── 2. Breadth — proportion titres en hausse ─────────────
-    latest_act = await db.execute(
-        select(BrvmAction.date).order_by(desc(BrvmAction.date)).limit(1)
-    )
-    latest_act_date = latest_act.scalar_one_or_none()
-    if latest_act_date:
-        act_res = await db.execute(
-            select(BrvmAction).where(BrvmAction.date == latest_act_date)
-        )
-        actions = act_res.scalars().all()
-        nb_up   = sum(1 for a in actions if (a.variation or 0) > 0.1)
-        nb_down = sum(1 for a in actions if (a.variation or 0) < -0.1)
-        nb_stab = len(actions) - nb_up - nb_down
-        total   = len(actions) or 1
-        ratio   = nb_up / total
-        breadth = {"nb_up": nb_up, "nb_down": nb_down, "nb_stable": nb_stab,
-                   "ratio": round(ratio, 2), "total": total}
-
-        if ratio > 0.60:
-            score += 1; reasons.append(f"{nb_up}/{total} titres en hausse (marché large haussier)")
-        elif ratio < 0.35:
-            score -= 1; reasons.append(f"{nb_down}/{total} titres en baisse (marché large baissier)")
-        else:
-            reasons.append(f"Marché partagé ({nb_up} ↑ / {nb_down} ↓)")
-
-    # ── 3. Signal BRVM 30 (momentum blue chips) ───────────────
-    if brvm30_var is not None:
-        if brvm30_var > 0.5:
-            score += 1; reasons.append(f"BRVM 30 +{brvm30_var:.2f}% (blue chips haussières)")
-        elif brvm30_var < -0.5:
-            score -= 1; reasons.append(f"BRVM 30 {brvm30_var:.2f}% (pression sur les blue chips)")
-
-    # ── Label + couleur ───────────────────────────────────────
-    if score >= 3:
-        mood, color, label = "bull",       "#00CC66", "Marché haussier"
-    elif score >= 1:
-        mood, color, label = "bull_mild",  "#22c55e", "Légèrement haussier"
-    elif score == 0:
-        mood, color, label = "neutral",    "#6b7280", "Marché neutre"
-    elif score >= -2:
-        mood, color, label = "bear_mild",  "#f59e0b", "Légèrement baissier"
-    else:
-        mood, color, label = "bear",       "#ef4444", "Marché baissier"
-
-    # Contexte macro synthétique
-    macro_context = (
-        "Marché solide — momentum positif sur l'ensemble des secteurs." if score >= 3 else
-        "Tendance positive mais sélective — arbitrages sectoriels en cours." if score >= 1 else
-        "Consolidation — équilibre acheteurs / vendeurs, attente de catalyseur." if score == 0 else
-        "Pression vendeuse — prudence sur les positions nouvelles." if score >= -2 else
-        "Correction significative — surveiller supports clés et liquidité."
-    )
-
-    return {
-        "mood":            mood,
-        "score":           score,
-        "color":           color,
-        "label":           label,
-        "composite_var":   composite_var,
-        "brvm30_var":      brvm30_var,
-        "breadth":         breadth,
-        "reasons":         reasons,
-        "macro_context":   macro_context,
-        "data_date":       str(latest_act_date) if latest_act_date else None,
-        "no_data":         latest_act_date is None,
-    }
+    from backend.app.pipeline.mood_engine import compute_market_mood
+    return await compute_market_mood(db)
 
 
 @router.post("/scrape")
