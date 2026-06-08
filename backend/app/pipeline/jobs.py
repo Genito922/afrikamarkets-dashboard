@@ -113,6 +113,31 @@ async def _upsert_action(session: AsyncSession, row, today: date) -> None:
             date         = today,
         ))
 
+    # ── Rétro-persist cours_veille → point historique J-1 ──────
+    # Si cours_veille est non nul, on crée un point pour hier s'il est absent.
+    # Cela double le rythme d'accumulation historique sans source externe.
+    cours_v = _float(row.get("cours_veille"))
+    if cours_v and cours_v > 0:
+        from datetime import timedelta
+        yesterday = today - timedelta(days=1)
+        res_y = await session.execute(
+            select(BrvmAction).where(
+                and_(BrvmAction.symbole == row["symbole"], BrvmAction.date == yesterday)
+            )
+        )
+        if not res_y.scalar_one_or_none():
+            session.add(BrvmAction(
+                symbole      = str(row["symbole"]),
+                nom          = _str(row["nom"]),
+                secteur      = _str(row.get("secteur")),
+                cours        = cours_v,
+                cours_veille = None,
+                cours_ouv    = cours_v,
+                variation    = 0.0,
+                volume       = 0,
+                date         = yesterday,
+            ))
+
 
 async def _upsert_index(
     session: AsyncSession, item: dict, type_idx: str, today: date
