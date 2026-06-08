@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import LanguageSelector from "./LanguageSelector";
+import ComplianceBanner from "./ComplianceBanner";
 
 const PLAN_BADGE = {
   free:    { label: "Free",    cls: "bg-gray-700 text-gray-300" },
@@ -42,12 +43,15 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
 
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 font-bold text-lg text-white hover:text-brand-400 transition-colors">
-            <span className="text-2xl">🌍</span>
-            <span className="hidden sm:inline">Afrika Markets</span>
-            <span className="text-brand-500 hidden sm:inline">Intelligence</span>
-            <span className="sm:hidden text-brand-500">AMI</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link to="/" className="flex items-center gap-2 font-bold text-lg text-white hover:text-brand-400 transition-colors">
+              <span className="text-2xl">🌍</span>
+              <span className="hidden sm:inline">Afrika Markets</span>
+              <span className="text-brand-500 hidden sm:inline">Intelligence</span>
+              <span className="sm:hidden text-brand-500">AMI</span>
+            </Link>
+            <ComplianceBanner variant="strip" className="hidden lg:flex" />
+          </div>
 
           {/* Nav desktop */}
           <nav className="hidden lg:flex items-center gap-0.5">

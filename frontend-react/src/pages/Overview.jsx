@@ -13,9 +13,11 @@
  * Conformité : langue neutre "signal" vs "recommandation d'achat",
  *              disclaimer non-affiliation BRVM visible sur toute la page.
  */
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { apiGet } from "../lib/api";
+import ComplianceBanner from "../components/ComplianceBanner";
 
 // ── Logo inline ───────────────────────────────────────────────
 
@@ -34,6 +36,96 @@ function Logo({ size = "md" }) {
           Afrika<span className="text-emerald-400">Markets</span>
         </p>
         <p className={`${s.sub} text-gray-500 leading-none`}>Intelligence</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Market Mood Widget ────────────────────────────────────────
+
+function MarketMoodWidget() {
+  const [mood, setMood]     = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet("/market/mood")
+      .then(setMood)
+      .catch(() => setMood(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-gray-900/60 border border-gray-800 animate-pulse">
+        <div className="w-3 h-3 rounded-full bg-gray-700" />
+        <div className="h-4 w-32 bg-gray-800 rounded" />
+      </div>
+    );
+  }
+
+  if (!mood || mood.no_data) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-gray-900/60 border border-gray-800">
+        <span className="w-3 h-3 rounded-full bg-gray-600" />
+        <span className="text-sm text-gray-500">Données de marché en cours d'initialisation</span>
+      </div>
+    );
+  }
+
+  const MOOD_ICON = {
+    bull: "▲▲", bull_mild: "▲", neutral: "—", bear_mild: "▼", bear: "▼▼",
+  };
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-4 px-5 py-3 rounded-2xl border transition-all"
+      style={{ background: mood.color + "0d", borderColor: mood.color + "33" }}
+    >
+      {/* Indicateur principal */}
+      <div className="flex items-center gap-2.5">
+        <div className="relative">
+          <span
+            className="w-3 h-3 rounded-full block"
+            style={{ background: mood.color, boxShadow: `0 0 8px ${mood.color}80` }}
+          />
+          {(mood.mood === "bull" || mood.mood === "bear") && (
+            <span
+              className="absolute inset-0 rounded-full animate-ping"
+              style={{ background: mood.color, opacity: 0.3 }}
+            />
+          )}
+        </div>
+        <span className="text-sm font-bold" style={{ color: mood.color }}>
+          {MOOD_ICON[mood.mood]} {mood.label}
+        </span>
+      </div>
+
+      <div className="w-px h-4 bg-gray-700 hidden sm:block" />
+
+      {/* Composite */}
+      {mood.composite_var !== null && (
+        <div className="text-xs text-gray-400">
+          BRVM Composite{" "}
+          <span className="font-mono font-semibold" style={{ color: mood.color }}>
+            {mood.composite_var >= 0 ? "+" : ""}{mood.composite_var?.toFixed(2)}%
+          </span>
+        </div>
+      )}
+
+      <div className="w-px h-4 bg-gray-700 hidden sm:block" />
+
+      {/* Breadth */}
+      <div className="text-xs text-gray-400">
+        <span className="text-green-400 font-semibold">{mood.breadth.nb_up}↑</span>
+        {" · "}
+        <span className="text-red-400 font-semibold">{mood.breadth.nb_down}↓</span>
+        {" · "}
+        <span className="text-gray-500">{mood.breadth.nb_stable}=</span>
+        <span className="text-gray-600 ml-1">titres</span>
+      </div>
+
+      <div className="ml-auto text-xs text-gray-600 hidden sm:block">
+        ↻ 15 min
       </div>
     </div>
   );
@@ -212,38 +304,59 @@ const GUIDE_SECTIONS = [
   },
 ];
 
-// ── Features de la plateforme ─────────────────────────────────
+// ── Features de la plateforme — 3 clusters ───────────────────
 
-const PLATFORM_FEATURES = [
+const PLATFORM_CLUSTERS = [
   {
-    to: "/marche",       icon: "📈", label: "Marché BRVM",
-    desc: "Cours en temps réel, volumes, variations · Tous les 47 titres cotés",
-    color: "border-blue-800/40 hover:border-blue-600/60",
+    key: "marches",
+    icon: "📊",
+    title: "Marchés & Données",
+    color: "from-blue-950/50 to-blue-950/20 border-blue-900/40",
+    accent: "#3b82f6",
+    features: [
+      {
+        to: "/marche",        icon: "📈", label: "Marché BRVM",
+        desc: "Cours temps réel · 47 titres · Volumes · Top/Flop du jour",
+      },
+      {
+        to: "/international", icon: "🌍", label: "Marchés Africains",
+        desc: "JSE · NGX · GSE · NSE Kenya · EGX · BVC · BVMT",
+      },
+    ],
   },
   {
-    to: "/analyse",      icon: "📐", label: "Analyse Technique",
-    desc: "MA 16/19/246/361 · RSI · MFI · Signaux · Croisements détectés",
-    color: "border-emerald-800/40 hover:border-emerald-600/60",
+    key: "analyse",
+    icon: "🧠",
+    title: "Analyse & Signaux IA",
+    color: "from-emerald-950/50 to-emerald-950/20 border-emerald-900/40",
+    accent: "#10b981",
+    features: [
+      {
+        to: "/analyse",  icon: "📐", label: "Analyse Technique",
+        desc: "MA 16/19/246/361 · RSI · MFI · Croisements · Signaux",
+      },
+      {
+        to: "/risques",  icon: "🛡️", label: "War Room UEMOA",
+        desc: "Géopolitique · Macro · Risque pays · Contexte régional",
+      },
+    ],
   },
   {
-    to: "/sgi",          icon: "🏢", label: "SGI & OPCVM",
-    desc: "Annuaire et classement des 8 intermédiaires agréés BRVM",
-    color: "border-violet-800/40 hover:border-violet-600/60",
-  },
-  {
-    to: "/international",icon: "🌍", label: "Marchés Africains",
-    desc: "JSE · NGX · GSE · NSE Kenya · EGX + Signaux IA par marché",
-    color: "border-amber-800/40 hover:border-amber-600/60",
-  },
-  {
-    to: "/risques",      icon: "🛡️", label: "War Room UEMOA",
-    desc: "Indicateurs géopolitiques et macroéconomiques par pays",
-    color: "border-red-800/40 hover:border-red-600/60",
-  },
-  {
-    to: "/portefeuille", icon: "💼", label: "Portefeuille",
-    desc: "Suivi de performance, allocation sectorielle, historique",
-    color: "border-cyan-800/40 hover:border-cyan-600/60",
+    key: "gestion",
+    icon: "💼",
+    title: "Gestion & Courtiers",
+    color: "from-violet-950/50 to-violet-950/20 border-violet-900/40",
+    accent: "#8b5cf6",
+    features: [
+      {
+        to: "/portefeuille", icon: "💼", label: "Portefeuille",
+        desc: "Suivi de performance · Allocation sectorielle · Historique",
+      },
+      {
+        to: "/sgi",          icon: "🏢", label: "SGI & OPCVM",
+        desc: "Annuaire · Classement des 8 intermédiaires agréés BRVM",
+      },
+    ],
   },
 ];
 
@@ -443,34 +556,6 @@ function QuizOption({ label, selected, onClick }) {
   );
 }
 
-// ── Disclaimer ────────────────────────────────────────────────
-
-function Disclaimer({ compact = false }) {
-  if (compact) {
-    return (
-      <p className="text-xs text-gray-600 text-center">
-        ⚠️ Outil d'analyse indépendant · Non affilié à la BRVM ni à l'AMF-UMOA ·
-        Les informations ne constituent pas un conseil en investissement ·
-        Investir comporte un risque de perte en capital
-      </p>
-    );
-  }
-  return (
-    <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-yellow-950/20 border border-yellow-900/30 text-xs">
-      <span className="text-yellow-500 shrink-0 mt-0.5">⚠</span>
-      <p className="text-yellow-200/60 leading-relaxed">
-        <strong className="text-yellow-300">Avertissement légal</strong> — Afrika Markets Intelligence est un outil
-        d'analyse et d'information indépendant. Cette plateforme n'est pas affiliée à la Bourse Régionale des
-        Valeurs Mobilières (BRVM), à l'AMF-UMOA, au DC/BR, ni à aucune entité financière officielle de l'UEMOA.
-        Les données et signaux présentés sont à titre informatif et éducatif uniquement. Ils ne constituent
-        pas un conseil en investissement au sens réglementaire.
-        <strong className="text-yellow-300"> Tout investissement comporte un risque de perte en capital,
-        pouvant aller jusqu'à la perte totale.</strong> Les performances passées ne préjugent pas des
-        performances futures. Consultez un professionnel financier agréé avant toute décision.
-      </p>
-    </div>
-  );
-}
 
 // ── Guide accordéon ───────────────────────────────────────────
 
@@ -610,7 +695,7 @@ export default function Overview() {
             </div>
 
             {/* CTAs */}
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 mb-6">
               <button
                 onClick={startWizard}
                 className="btn-primary px-6 py-3 text-base"
@@ -635,6 +720,9 @@ export default function Overview() {
                 </button>
               )}
             </div>
+
+            {/* Market Mood live */}
+            <MarketMoodWidget />
           </div>
         </div>
       </section>
@@ -677,48 +765,58 @@ export default function Overview() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════
-          SECTION 2 — NAVIGATION PLATEFORME
+          SECTION 2 — NAVIGATION PLATEFORME (3 clusters)
       ══════════════════════════════════════════════════════════ */}
       <section className="max-w-5xl mx-auto px-4 pb-14">
         <div className="text-center mb-8">
           <p className="text-xs text-blue-400 uppercase tracking-widest font-semibold mb-2">Plateforme</p>
           <h2 className="text-2xl font-black text-white mb-2">Comment utiliser la plateforme</h2>
-          <p className="text-gray-500 text-sm">6 modules — progressez à votre rythme</p>
+          <p className="text-gray-500 text-sm">3 domaines · 6 modules · progressez à votre rythme</p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {PLATFORM_FEATURES.map((f) => (
-            <Link
-              key={f.to}
-              to={isAuthenticated ? f.to : "/register"}
-              className={`card border ${f.color} transition-all group`}
+        <div className="grid sm:grid-cols-3 gap-4">
+          {PLATFORM_CLUSTERS.map((cluster) => (
+            <div
+              key={cluster.key}
+              className={`rounded-2xl border bg-gradient-to-br ${cluster.color} p-4 space-y-3`}
             >
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">{f.icon}</span>
-                <div>
-                  <p className="text-sm font-bold text-white group-hover:text-brand-400 transition-colors">
-                    {f.label}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{f.desc}</p>
-                </div>
+              {/* Cluster header */}
+              <div className="flex items-center gap-2 pb-2 border-b border-white/5">
+                <span className="text-xl">{cluster.icon}</span>
+                <p className="text-sm font-bold text-white">{cluster.title}</p>
               </div>
-            </Link>
+              {/* Feature links */}
+              {cluster.features.map((f) => (
+                <Link
+                  key={f.to}
+                  to={isAuthenticated ? f.to : "/register"}
+                  className="flex items-start gap-2.5 group"
+                >
+                  <span className="text-lg mt-0.5">{f.icon}</span>
+                  <div>
+                    <p className="text-sm font-semibold text-white group-hover:underline
+                                  decoration-dotted underline-offset-2 transition-colors"
+                       style={{ textDecorationColor: cluster.accent }}>
+                      {f.label}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-snug">{f.desc}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
           ))}
         </div>
 
-        <div className="mt-6 text-center">
-          <p className="text-xs text-gray-600">
-            La bourse n'est pas un sprint — c'est un processus d'apprentissage continu.
-            Prenez votre temps.
-          </p>
-        </div>
+        <p className="text-xs text-gray-600 text-center mt-5">
+          La bourse n'est pas un sprint — c'est un processus d'apprentissage continu. Prenez votre temps.
+        </p>
       </section>
 
       {/* ══════════════════════════════════════════════════════════
-          DISCLAIMER LÉGAL
+          DISCLAIMER LÉGAL — composant unique
       ══════════════════════════════════════════════════════════ */}
       <div className="max-w-5xl mx-auto px-4 pb-8">
-        <Disclaimer />
+        <ComplianceBanner variant="full" />
       </div>
 
       {/* ══════════════════════════════════════════════════════════
@@ -991,7 +1089,7 @@ export default function Overview() {
                   </>
                 )}
 
-                <Disclaimer compact />
+                <ComplianceBanner variant="compact" />
               </div>
             )}
           </>

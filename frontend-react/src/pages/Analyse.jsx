@@ -18,6 +18,7 @@ import {
 } from "recharts";
 import { apiGet } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import ComplianceBanner from "../components/ComplianceBanner";
 
 // ── Constantes ───────────────────────────────────────────────
 
@@ -716,6 +717,7 @@ export default function Analyse() {
               <span>·</span>
               <span>retro-persist cours_veille actif</span>
             </div>
+            <ComplianceBanner variant="compact" />
           </>
         )}
 

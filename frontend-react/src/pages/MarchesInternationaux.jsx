@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { apiGet } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import ComplianceBanner from "../components/ComplianceBanner";
 
 // ── Asset catalogue ──────────────────────────────────────────
 
@@ -856,6 +857,7 @@ export default function MarchesInternationaux() {
             <p className="text-xs text-gray-600 text-center">
               Source : Yahoo Finance (yfinance) · Données différées de 15–20 min · EUR/XOF parité fixe BCEAO 1999
             </p>
+            <ComplianceBanner variant="compact" />
           </>
         )}
       </div>
