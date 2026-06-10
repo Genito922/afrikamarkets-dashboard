@@ -26,6 +26,7 @@ import SGICenter    from "../pages/SGICenter";
 // App — plan Expert
 import MarchesInternationaux from "../pages/MarchesInternationaux";
 import CryptoAnalyse         from "../pages/CryptoAnalyse";
+import PerformanceDashboard  from "../pages/PerformanceDashboard";
 
 export default function AppRoutes() {
   return (
@@ -79,6 +80,9 @@ export default function AppRoutes() {
       } />
       <Route path="/crypto" element={
         <ProtectedRoute minPlan="expert"><CryptoAnalyse /></ProtectedRoute>
+      } />
+      <Route path="/performance" element={
+        <ProtectedRoute minPlan="expert"><PerformanceDashboard /></ProtectedRoute>
       } />
 
       <Route path="*" element={<NotFound />} />
