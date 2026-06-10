@@ -1,23 +1,32 @@
 /**
  * TradingViewWidget — Graphique avancé TradingView
- * Intégration via le widget embed officiel (gratuit, attribution obligatoire).
- * Source : https://www.tradingview.com/widget/advanced-chart/
+ * API : tv.js + new window.TradingView.widget() — instance explicite,
+ * nettoyage propre au démontage, script chargé une seule fois (data-tvjs).
  *
- * Règles d'attribution : le lien "Powered by TradingView" doit rester visible
- * et l'accès au widget ne doit pas être bloqué derrière un paywall exclusif.
+ * Attribution obligatoire (widget gratuit) : lien "Powered by TradingView" visible.
  */
 import { useEffect, useRef, memo } from "react";
 
-// ── Mapping intervalle jours → code TradingView ────────────────
+// ── Mapping noms d'études ──────────────────────────────────────
+// embed-widget → tv.js widget API
+const STUDY_MAP = {
+  "STD;RSI":             "RSI@tv-basicstudies",
+  "STD;MACD":            "MACD@tv-basicstudies",
+  "STD;Bollinger_Bands": "BB@tv-basicstudies",
+  "STD;Volume":          "Volume@tv-basicstudies",
+};
+const toTvStudy = (s) => STUDY_MAP[s] ?? s;
+
+// ── Exports utilisés dans TitreDetail.jsx + CryptoAnalyse.jsx ─
+
 export const TV_INTERVAL = {
-  7:   "60",    // 1h
-  30:  "D",     // Journalier
+  7:   "60",   // 1h
+  30:  "D",    // Journalier
   90:  "D",
-  180: "W",     // Hebdomadaire
+  180: "W",    // Hebdomadaire
   365: "W",
 };
 
-// ── Mapping tickers yfinance → symboles TradingView ────────────
 export const TV_CRYPTO = {
   "BTC-USD":  "BINANCE:BTCUSDT",
   "ETH-USD":  "BINANCE:ETHUSDT",
@@ -31,19 +40,20 @@ export const TV_CRYPTO = {
   "DOT-USD":  "BINANCE:DOTUSDT",
 };
 
-// Tickers BRVM connus sur TradingView (préfixe BRVM:)
 export const BRVM_ON_TV = new Set([
   "SNTS","SGBC","ETIT","BICC","ORAC","NTLC","SIVC","UNXC","BOAS","BOABF",
   "COBI","SAFC","SLBC","TTLS","PALM","SOGC","SPHC","CFAC","CABC","ECOC",
   "SEMC","STAC","FTSC","BMCI","NEIM","ORDI","SDCC","SDCI",
 ]);
 
+// ── Composant ─────────────────────────────────────────────────
+
 /**
- * @param {string}   symbol    — Symbole TradingView (ex: "BINANCE:BTCUSDT", "BRVM:SNTS")
- * @param {string}   interval  — "1","5","15","30","60","240","D","W","M"
- * @param {"dark"|"light"} theme
- * @param {number}   height    — Hauteur totale en px (défaut 520)
- * @param {string[]} studies   — Indicateurs pré-chargés
+ * @param {string}           symbol    — "BINANCE:BTCUSDT" | "BRVM:SNTS"
+ * @param {string}           interval  — "1"|"5"|"15"|"60"|"240"|"D"|"W"
+ * @param {"dark"|"light"}   theme
+ * @param {number}           height    — hauteur totale px (défaut 520)
+ * @param {string[]}         studies   — clés STD; ou identifiants tv-basicstudies
  */
 function TradingViewWidget({
   symbol   = "BINANCE:BTCUSDT",
@@ -52,58 +62,81 @@ function TradingViewWidget({
   height   = 520,
   studies  = ["STD;RSI", "STD;MACD"],
 }) {
-  const container = useRef(null);
+  const containerRef = useRef(null);
+  // ID stable pour toute la durée de vie du composant
+  const idRef = useRef(`tv_${Math.random().toString(36).slice(2, 9)}`);
 
   useEffect(() => {
-    if (!container.current) return;
+    const container = containerRef.current;
+    if (!container) return;
 
-    // Réinitialise le container
-    container.current.innerHTML = `
-      <div
-        class="tradingview-widget-container__widget"
-        style="height:${height - 24}px;width:100%"
-      ></div>
-    `;
+    // Réinitialise le container (détruit l'iframe précédente si elle existe)
+    container.innerHTML = "";
 
-    const script = document.createElement("script");
-    script.src   = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-    script.type  = "text/javascript";
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      autosize:        true,
-      symbol,
-      interval,
-      timezone:        "Africa/Abidjan",
-      theme,
-      style:           "1",
-      locale:          "fr",
-      backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff",
-      gridColor:       theme === "dark" ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)",
-      hide_top_toolbar: false,
-      hide_legend:     false,
-      save_image:      true,
-      calendar:        false,
-      hide_volume:     false,
-      support_host:    "https://www.tradingview.com",
-      studies,
-    });
+    // Div cible identifiée par ID stable
+    const divId = idRef.current;
+    const chartDiv = document.createElement("div");
+    chartDiv.id    = divId;
+    chartDiv.style.cssText = `height:${height - 24}px;width:100%`;
+    container.appendChild(chartDiv);
 
-    container.current.appendChild(script);
+    let pollId = null;
+
+    function createWidget() {
+      // Double-check : div encore dans le DOM + library disponible
+      if (!document.getElementById(divId)) return;
+      if (typeof window.TradingView === "undefined") return;
+
+      new window.TradingView.widget({
+        autosize:            true,
+        symbol,
+        interval,
+        timezone:            "Africa/Abidjan",
+        theme,
+        style:               "1",
+        locale:              "fr",
+        toolbar_bg:          theme === "dark" ? "#0f172a" : "#f8fafc",
+        enable_publishing:   false,
+        hide_side_toolbar:   false,
+        allow_symbol_change: true,
+        studies:             studies.map(toTvStudy),
+        container_id:        divId,
+      });
+    }
+
+    if (typeof window.TradingView !== "undefined") {
+      // Library déjà chargée (rendu suivant)
+      createWidget();
+    } else if (document.querySelector("script[data-tvjs]")) {
+      // Script en cours de chargement — attente par polling
+      pollId = setInterval(() => {
+        if (typeof window.TradingView !== "undefined") {
+          clearInterval(pollId);
+          pollId = null;
+          createWidget();
+        }
+      }, 50);
+    } else {
+      // Premier rendu — chargement unique du script
+      const script = document.createElement("script");
+      script.src   = "https://s3.tradingview.com/tv.js";
+      script.async = true;
+      script.setAttribute("data-tvjs", "1");   // marqueur déduplication
+      script.onload = createWidget;
+      document.head.appendChild(script);
+    }
 
     return () => {
-      if (container.current) container.current.innerHTML = "";
+      // Nettoyage strict : interval + iframe TradingView
+      if (pollId) clearInterval(pollId);
+      if (container) container.innerHTML = "";
     };
-  }, [symbol, interval, theme, height]);
+  }, [symbol, interval, theme, height]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={{ width: "100%", height }}>
-      {/* Container widget — TradingView détecte sa div sœur automatiquement */}
-      <div
-        className="tradingview-widget-container"
-        ref={container}
-        style={{ height: height - 24, width: "100%" }}
-      />
-      {/* Attribution obligatoire */}
+      <div ref={containerRef} style={{ height: height - 24, width: "100%" }} />
+      {/* Attribution obligatoire — ne pas supprimer */}
       <div style={{
         height: 24,
         display: "flex",
