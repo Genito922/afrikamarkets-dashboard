@@ -24,6 +24,7 @@ import {
 import { apiGet } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import ComplianceBanner from "../components/ComplianceBanner";
+import TradingViewWidget, { TV_CRYPTO, TV_INTERVAL } from "../components/TradingViewWidget";
 
 // ── Catalogue actifs ─────────────────────────────────────────
 const ASSETS = [
@@ -221,6 +222,7 @@ function AnalyseTab({ ticker, days }) {
   const [error,   setError]   = useState(null);
   const [showBB,  setShowBB]  = useState(true);
   const [showEMA, setShowEMA] = useState(true);
+  const [showTV,  setShowTV]  = useState(false);
 
   const asset = ASSETS.find((a) => a.ticker === ticker);
 
@@ -372,27 +374,52 @@ function AnalyseTab({ ticker, days }) {
       </div>
 
       {/* ── Toggles ─────────────────────────────── */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
         <button
-          onClick={() => setShowEMA(!showEMA)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
-            showEMA ? "border-yellow-600 bg-yellow-950/40 text-yellow-300" : "border-gray-700 bg-gray-900 text-gray-400"
+          onClick={() => setShowTV((v) => !v)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border flex items-center gap-1.5 ${
+            showTV
+              ? "border-blue-500 bg-blue-950/60 text-blue-300"
+              : "border-gray-600 bg-gray-800 text-gray-300 hover:text-white"
           }`}
         >
-          EMA 9/21/50/200
+          <span>📈</span>
+          <span>{showTV ? "Vue Recharts" : "Vue TradingView"}</span>
         </button>
-        <button
-          onClick={() => setShowBB(!showBB)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
-            showBB ? "border-blue-600 bg-blue-950/40 text-blue-300" : "border-gray-700 bg-gray-900 text-gray-400"
-          }`}
-        >
-          Bandes de Bollinger (20)
-        </button>
+        {!showTV && (
+          <>
+            <button
+              onClick={() => setShowEMA(!showEMA)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                showEMA ? "border-yellow-600 bg-yellow-950/40 text-yellow-300" : "border-gray-700 bg-gray-900 text-gray-400"
+              }`}
+            >
+              EMA 9/21/50/200
+            </button>
+            <button
+              onClick={() => setShowBB(!showBB)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                showBB ? "border-blue-600 bg-blue-950/40 text-blue-300" : "border-gray-700 bg-gray-900 text-gray-400"
+              }`}
+            >
+              Bandes de Bollinger (20)
+            </button>
+          </>
+        )}
       </div>
 
-      {/* ── Prix + EMAs + Bollinger ──────────────── */}
+      {/* ── Prix + EMAs + Bollinger / TradingView ─── */}
       <div className="card">
+        {showTV ? (
+          <TradingViewWidget
+            symbol={TV_CRYPTO[ticker] || "BINANCE:BTCUSDT"}
+            interval={TV_INTERVAL[days] || "D"}
+            theme="dark"
+            height={540}
+            studies={["STD;RSI", "STD;MACD", "STD;Bollinger_Bands"]}
+          />
+        ) : (
+        <>
         <p className="text-xs text-gray-400 mb-3 font-medium">
           Prix · {showEMA ? "EMA 9/21/50/200 · " : ""}{showBB ? "Bollinger (20, 2σ)" : ""}
         </p>
@@ -476,6 +503,8 @@ function AnalyseTab({ ticker, days }) {
             )}
           </ComposedChart>
         </ResponsiveContainer>
+        </>
+        )}
       </div>
 
       {/* ── Volume ──────────────────────────────── */}

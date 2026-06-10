@@ -12,6 +12,7 @@ import {
   ReferenceLine, Legend,
 } from "recharts";
 import { apiGet } from "../lib/api";
+import TradingViewWidget, { BRVM_ON_TV } from "../components/TradingViewWidget";
 
 const TOOLTIP_STYLE = {
   contentStyle: { background: "#111827", border: "1px solid #374151", borderRadius: 8 },
@@ -46,6 +47,8 @@ export default function TitreDetail() {
   const [history,  setHistory]  = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
+  const [showTV,   setShowTV]   = useState(false);
+  const tvCovered = BRVM_ON_TV.has(sym);
 
   useEffect(() => {
     if (!sym) return;
@@ -144,16 +147,51 @@ export default function TitreDetail() {
 
         {/* Graphique prix */}
         <div className="card">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <h2 className="text-base font-semibold text-white">{t("price_history", "Historique des prix")}</h2>
-            {data.length > 1 && (
-              <span className={`text-sm font-semibold ${delta >= 0 ? "text-green-400" : "text-red-400"}`}>
-                {delta >= 0 ? "+" : ""}{delta.toFixed(2)}% sur {period}j
-              </span>
-            )}
+            <div className="flex items-center gap-3">
+              {data.length > 1 && (
+                <span className={`text-sm font-semibold ${delta >= 0 ? "text-green-400" : "text-red-400"}`}>
+                  {delta >= 0 ? "+" : ""}{delta.toFixed(2)}% sur {period}j
+                </span>
+              )}
+              {/* Toggle TradingView */}
+              <button
+                onClick={() => setShowTV((v) => !v)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  showTV
+                    ? "bg-blue-950/60 border-blue-600 text-blue-300"
+                    : "bg-gray-800 border-gray-600 text-gray-400 hover:text-white"
+                }`}
+                title={tvCovered ? "Graphique TradingView avancé" : "Ce titre peut ne pas être couvert par TradingView"}
+              >
+                <span>📈</span>
+                <span>{showTV ? "Vue simple" : "TradingView"}</span>
+                {!tvCovered && !showTV && <span className="text-yellow-500 text-xs">⚠️</span>}
+              </button>
+            </div>
           </div>
 
-          {loading ? (
+          {/* Avertissement couverture TradingView */}
+          {showTV && !tvCovered && (
+            <div className="mb-3 px-3 py-2 rounded-lg bg-yellow-950/40 border border-yellow-800/40 text-xs text-yellow-400 flex items-center gap-2">
+              <span>⚠️</span>
+              <span>
+                <strong>{sym}</strong> n'est pas dans la liste des titres BRVM vérifiés sur TradingView.
+                Le graphique peut être vide — utilisez la vue simple pour les données Afrika Markets.
+              </span>
+            </div>
+          )}
+
+          {showTV ? (
+            <TradingViewWidget
+              symbol={`BRVM:${sym}`}
+              interval="D"
+              theme="dark"
+              height={480}
+              studies={["STD;RSI", "STD;MACD", "STD;Volume"]}
+            />
+          ) : loading ? (
             <div className="h-64 animate-pulse bg-gray-800 rounded-xl" />
           ) : data.length === 0 ? (
             <div className="h-64 flex items-center justify-center text-gray-500">
