@@ -25,6 +25,7 @@ import { apiGet } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import ComplianceBanner from "../components/ComplianceBanner";
 import TradingViewWidget, { TV_CRYPTO, TV_INTERVAL } from "../components/TradingViewWidget";
+import MacroSidebar from "../components/MacroSidebar";
 
 // ── Catalogue actifs ─────────────────────────────────────────
 const ASSETS = [
@@ -1210,7 +1211,22 @@ export default function CryptoAnalyse() {
         )}
 
         {/* ── Contenu des onglets ──────────────────────────────── */}
-        {activeTab === "analyse"      && <AnalyseTab      ticker={ticker} days={days} />}
+
+        {/* Analyse : layout Terminal Bloomberg 3/4 + sidebar 1/4 */}
+        {activeTab === "analyse" && (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+            <div className="lg:col-span-3">
+              <AnalyseTab ticker={ticker} days={days} />
+            </div>
+            <div className="lg:col-span-1">
+              <MacroSidebar
+                context="crypto"
+                currentSymbol={TV_CRYPTO[ticker]}
+              />
+            </div>
+          </div>
+        )}
+
         {activeTab === "screener"     && <ScreenerTab     days={days} />}
         {activeTab === "correlations" && <CorrelationsTab days={days} />}
         {activeTab === "sentiment"    && <SentimentTab    days={days} />}

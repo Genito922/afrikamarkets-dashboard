@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { apiGet } from "../lib/api";
 import TradingViewWidget, { BRVM_ON_TV } from "../components/TradingViewWidget";
+import MacroSidebar from "../components/MacroSidebar";
 
 const TOOLTIP_STYLE = {
   contentStyle: { background: "#111827", border: "1px solid #374151", borderRadius: 8 },
@@ -88,7 +89,7 @@ export default function TitreDetail() {
 
   return (
     <div className="py-8 px-4">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-5">
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -112,162 +113,177 @@ export default function TitreDetail() {
           </div>
         )}
 
-        {/* KPIs */}
-        {last && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
-            <KpiCard label="Clôture"    value={`${last.cours?.toLocaleString()} F`} />
-            <KpiCard label="Veille"     value={`${last.cours_veille?.toLocaleString()} F`} />
-            <KpiCard label="Ouverture"  value={`${last.cours_ouv?.toLocaleString()} F`} />
-            <KpiCard
-              label="Variation"
-              value={`${last.variation >= 0 ? "+" : ""}${last.variation?.toFixed(2)}%`}
-              positive={last.variation > 0 ? true : last.variation < 0 ? false : null}
-            />
-            <KpiCard label="Volume"     value={last.volume?.toLocaleString()} />
-          </div>
-        )}
+        {/* ── Layout Terminal Bloomberg : 3/4 graphiques + 1/4 sidebar macro ─ */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
 
-        {/* Sélecteur période */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-400">{t("period", "Période")} :</span>
-          {[30, 90, 180, 365].map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                period === p
-                  ? "bg-brand-500 text-white"
-                  : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700"
-              }`}
-            >
-              {p}j
-            </button>
-          ))}
-        </div>
+          {/* Zone principale */}
+          <div className="lg:col-span-3 space-y-5">
 
-        {/* Graphique prix */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-            <h2 className="text-base font-semibold text-white">{t("price_history", "Historique des prix")}</h2>
-            <div className="flex items-center gap-3">
-              {data.length > 1 && (
-                <span className={`text-sm font-semibold ${delta >= 0 ? "text-green-400" : "text-red-400"}`}>
-                  {delta >= 0 ? "+" : ""}{delta.toFixed(2)}% sur {period}j
-                </span>
+            {/* KPIs */}
+            {last && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+                <KpiCard label="Clôture"    value={`${last.cours?.toLocaleString()} F`} />
+                <KpiCard label="Veille"     value={`${last.cours_veille?.toLocaleString()} F`} />
+                <KpiCard label="Ouverture"  value={`${last.cours_ouv?.toLocaleString()} F`} />
+                <KpiCard
+                  label="Variation"
+                  value={`${last.variation >= 0 ? "+" : ""}${last.variation?.toFixed(2)}%`}
+                  positive={last.variation > 0 ? true : last.variation < 0 ? false : null}
+                />
+                <KpiCard label="Volume"     value={last.volume?.toLocaleString()} />
+              </div>
+            )}
+
+            {/* Sélecteur période */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">{t("period", "Période")} :</span>
+              {[30, 90, 180, 365].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    period === p
+                      ? "bg-brand-500 text-white"
+                      : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700"
+                  }`}
+                >
+                  {p}j
+                </button>
+              ))}
+            </div>
+
+            {/* Graphique prix */}
+            <div className="card">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <h2 className="text-base font-semibold text-white">{t("price_history", "Historique des prix")}</h2>
+                <div className="flex items-center gap-3">
+                  {data.length > 1 && (
+                    <span className={`text-sm font-semibold ${delta >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      {delta >= 0 ? "+" : ""}{delta.toFixed(2)}% sur {period}j
+                    </span>
+                  )}
+                  {/* Toggle TradingView */}
+                  <button
+                    onClick={() => setShowTV((v) => !v)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                      showTV
+                        ? "bg-blue-950/60 border-blue-600 text-blue-300"
+                        : "bg-gray-800 border-gray-600 text-gray-400 hover:text-white"
+                    }`}
+                    title={tvCovered ? "Graphique TradingView avancé" : "Ce titre peut ne pas être couvert par TradingView"}
+                  >
+                    <span>📈</span>
+                    <span>{showTV ? "Vue simple" : "TradingView"}</span>
+                    {!tvCovered && !showTV && <span className="text-yellow-500 text-xs">⚠️</span>}
+                  </button>
+                </div>
+              </div>
+
+              {/* Avertissement couverture TradingView */}
+              {showTV && !tvCovered && (
+                <div className="mb-3 px-3 py-2 rounded-lg bg-yellow-950/40 border border-yellow-800/40 text-xs text-yellow-400 flex items-center gap-2">
+                  <span>⚠️</span>
+                  <span>
+                    <strong>{sym}</strong> n'est pas dans la liste des titres BRVM vérifiés sur TradingView.
+                    Le graphique peut être vide — utilisez la vue simple pour les données Afrika Markets.
+                  </span>
+                </div>
               )}
-              {/* Toggle TradingView */}
-              <button
-                onClick={() => setShowTV((v) => !v)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                  showTV
-                    ? "bg-blue-950/60 border-blue-600 text-blue-300"
-                    : "bg-gray-800 border-gray-600 text-gray-400 hover:text-white"
-                }`}
-                title={tvCovered ? "Graphique TradingView avancé" : "Ce titre peut ne pas être couvert par TradingView"}
+
+              {showTV ? (
+                <TradingViewWidget
+                  symbol={`BRVM:${sym}`}
+                  interval="D"
+                  theme="dark"
+                  height={420}
+                  studies={["STD;RSI", "STD;MACD", "STD;Volume"]}
+                />
+              ) : loading ? (
+                <div className="h-64 animate-pulse bg-gray-800 rounded-xl" />
+              ) : data.length === 0 ? (
+                <div className="h-64 flex items-center justify-center text-gray-500">
+                  Historique non disponible — données en cours d'accumulation
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <ComposedChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fill: "#6b7280", fontSize: 11 }}
+                      tickFormatter={(v) => v?.slice(5)}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      tick={{ fill: "#6b7280", fontSize: 11 }}
+                      tickFormatter={(v) => v?.toLocaleString()}
+                      width={70}
+                    />
+                    <Tooltip
+                      {...TOOLTIP_STYLE}
+                      formatter={(v, n) => [`${v?.toLocaleString()} F`, n === "cours" ? "Clôture" : "MA 10"]}
+                      labelFormatter={(v) => `📅 ${v}`}
+                    />
+                    <Area dataKey="cours" name="cours" stroke={lineColor} fill={fillColor} strokeWidth={2} dot={false} />
+                    <Line dataKey="ma10" name="MA 10" stroke="#f59e0b" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            {/* KPIs période */}
+            {data.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <KpiCard label={`Plus haut ${period}j`} value={`${high?.toLocaleString()} F`} />
+                <KpiCard label={`Plus bas ${period}j`}  value={`${low?.toLocaleString()} F`} />
+                <KpiCard
+                  label="Perf. période"
+                  value={`${delta >= 0 ? "+" : ""}${delta.toFixed(2)}%`}
+                  positive={delta >= 0 ? true : false}
+                />
+                <KpiCard label="Vol. moyen" value={Math.round(avgVol)?.toLocaleString()} />
+              </div>
+            )}
+
+            {/* Volume */}
+            {data.length > 0 && (
+              <div className="card">
+                <h2 className="text-base font-semibold text-white mb-4">{t("volume", "Volume")} ({period}j)</h2>
+                <ResponsiveContainer width="100%" height={110}>
+                  <BarChart data={chartData} margin={{ top: 0, right: 10, bottom: 0, left: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="date" tick={{ fill: "#6b7280", fontSize: 10 }} tickFormatter={(v) => v?.slice(5)} interval="preserveStartEnd" />
+                    <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} tickFormatter={(v) => (v / 1000).toFixed(0) + "k"} width={50} />
+                    <Tooltip
+                      {...TOOLTIP_STYLE}
+                      formatter={(v) => [v?.toLocaleString(), "Volume"]}
+                      labelFormatter={(v) => `📅 ${v}`}
+                    />
+                    <Bar dataKey="volume" fill="#006B3F" opacity={0.7} radius={[2, 2, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Lien analyse technique */}
+            <div className="card border-brand-500/20 text-center py-6">
+              <p className="text-gray-400 text-sm mb-3">Analyse technique complète (MA · RSI · MFI · Signaux)</p>
+              <Link
+                to={`/analyse?sym=${sym}`}
+                className="btn-primary text-sm"
               >
-                <span>📈</span>
-                <span>{showTV ? "Vue simple" : "TradingView"}</span>
-                {!tvCovered && !showTV && <span className="text-yellow-500 text-xs">⚠️</span>}
-              </button>
+                📈 Analyser {sym} →
+              </Link>
             </div>
+
+          </div>{/* /col-span-3 */}
+
+          {/* ── Sidebar Macro Bloomberg ─────────────────────────── */}
+          <div className="lg:col-span-1">
+            <MacroSidebar context="brvm" />
           </div>
 
-          {/* Avertissement couverture TradingView */}
-          {showTV && !tvCovered && (
-            <div className="mb-3 px-3 py-2 rounded-lg bg-yellow-950/40 border border-yellow-800/40 text-xs text-yellow-400 flex items-center gap-2">
-              <span>⚠️</span>
-              <span>
-                <strong>{sym}</strong> n'est pas dans la liste des titres BRVM vérifiés sur TradingView.
-                Le graphique peut être vide — utilisez la vue simple pour les données Afrika Markets.
-              </span>
-            </div>
-          )}
-
-          {showTV ? (
-            <TradingViewWidget
-              symbol={`BRVM:${sym}`}
-              interval="D"
-              theme="dark"
-              height={480}
-              studies={["STD;RSI", "STD;MACD", "STD;Volume"]}
-            />
-          ) : loading ? (
-            <div className="h-64 animate-pulse bg-gray-800 rounded-xl" />
-          ) : data.length === 0 ? (
-            <div className="h-64 flex items-center justify-center text-gray-500">
-              Historique non disponible — données en cours d'accumulation
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <ComposedChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fill: "#6b7280", fontSize: 11 }}
-                  tickFormatter={(v) => v?.slice(5)}
-                  interval="preserveStartEnd"
-                />
-                <YAxis
-                  tick={{ fill: "#6b7280", fontSize: 11 }}
-                  tickFormatter={(v) => v?.toLocaleString()}
-                  width={70}
-                />
-                <Tooltip
-                  {...TOOLTIP_STYLE}
-                  formatter={(v, n) => [`${v?.toLocaleString()} F`, n === "cours" ? "Clôture" : "MA 10"]}
-                  labelFormatter={(v) => `📅 ${v}`}
-                />
-                <Area dataKey="cours" name="cours" stroke={lineColor} fill={fillColor} strokeWidth={2} dot={false} />
-                <Line dataKey="ma10" name="MA 10" stroke="#f59e0b" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
-              </ComposedChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* KPIs période */}
-        {data.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <KpiCard label={`Plus haut ${period}j`} value={`${high?.toLocaleString()} F`} />
-            <KpiCard label={`Plus bas ${period}j`}  value={`${low?.toLocaleString()} F`} />
-            <KpiCard
-              label="Perf. période"
-              value={`${delta >= 0 ? "+" : ""}${delta.toFixed(2)}%`}
-              positive={delta >= 0 ? true : false}
-            />
-            <KpiCard label="Vol. moyen" value={Math.round(avgVol)?.toLocaleString()} />
-          </div>
-        )}
-
-        {/* Volume */}
-        {data.length > 0 && (
-          <div className="card">
-            <h2 className="text-base font-semibold text-white mb-4">{t("volume", "Volume")} ({period}j)</h2>
-            <ResponsiveContainer width="100%" height={120}>
-              <BarChart data={chartData} margin={{ top: 0, right: 10, bottom: 0, left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                <XAxis dataKey="date" tick={{ fill: "#6b7280", fontSize: 10 }} tickFormatter={(v) => v?.slice(5)} interval="preserveStartEnd" />
-                <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} tickFormatter={(v) => (v / 1000).toFixed(0) + "k"} width={50} />
-                <Tooltip
-                  {...TOOLTIP_STYLE}
-                  formatter={(v) => [v?.toLocaleString(), "Volume"]}
-                  labelFormatter={(v) => `📅 ${v}`}
-                />
-                <Bar dataKey="volume" fill="#006B3F" opacity={0.7} radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {/* Lien analyse technique */}
-        <div className="card border-brand-500/20 text-center py-6">
-          <p className="text-gray-400 text-sm mb-3">Analyse technique complète (MA · RSI · MFI · Signaux)</p>
-          <Link
-            to={`/analyse?sym=${sym}`}
-            className="btn-primary text-sm"
-          >
-            📈 Analyser {sym} →
-          </Link>
-        </div>
+        </div>{/* /grid */}
 
       </div>
     </div>
