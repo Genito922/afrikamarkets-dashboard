@@ -23,7 +23,9 @@ REGIME_STATE_PATH = Path(
     os.getenv("REGIME_STATE_PATH", _REPO_ROOT / "backtest" / "regime_state.json")
 )
 CAPITAL_INIT = float(os.getenv("PAPER_CAPITAL", "10000"))
-ANNUALIZE = 252
+# Crypto trade 24/7 → 365 jours de rendements par an (vs 252 pour les actions).
+# Le paper trading est exposé principalement BTC/ETH/SOL : facteur √365.
+ANNUALIZE = 365
 
 
 # ─── Helpers internes ─────────────────────────────────────────────────────────
@@ -158,8 +160,14 @@ def get_equity_series(range_days: int | None = None) -> list[dict]:
         conn.close()
 
 
+_MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+
 def get_monthly_returns() -> list[dict]:
-    """Matrice rendements mensuels pour heatmap [year, month, return_pct]."""
+    """
+    Matrice rendements mensuels pivotée pour heatmap.
+    Format : [{ "year": 2025, "Jan": 1.2, "Feb": -0.5, …, "Dec": null }, …]
+    Les mois sans données (futurs ou avant démarrage) sont null.
+    """
     conn = _conn()
     if conn is None:
         return []
@@ -175,15 +183,22 @@ def get_monthly_returns() -> list[dict]:
         monthly = (
             df["ret"].resample("ME").apply(lambda x: (1 + x).prod() - 1) * 100
         )
-        return [
-            {
-                "year": int(ts.year),
-                "month": int(ts.month),
-                "month_name": ts.strftime("%b"),
-                "return_pct": round(float(val), 2),
-            }
-            for ts, val in monthly.items()
-        ]
+
+        # Pivote en lignes année
+        by_year: dict[int, dict[str, float]] = {}
+        for ts, val in monthly.items():
+            yr  = int(ts.year)
+            mon = _MONTH_ABBR[ts.month - 1]
+            by_year.setdefault(yr, {})[mon] = round(float(val), 2)
+
+        # Construit les lignes — mois non encore écoulés → null
+        rows = []
+        for yr in sorted(by_year):
+            row: dict = {"year": yr}
+            for m in _MONTH_ABBR:
+                row[m] = by_year[yr].get(m, None)
+            rows.append(row)
+        return rows
     finally:
         conn.close()
 

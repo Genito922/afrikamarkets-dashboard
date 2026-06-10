@@ -29,8 +29,6 @@ const RANGE_OPTIONS = [
   { key: "all", label: "Tout" },
 ];
 
-const MONTHS = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
-
 const STATUS_COLOR = {
   active:   "#00c96a",
   waiting:  "#f59e0b",
@@ -87,6 +85,22 @@ function SectionTitle({ children, action }) {
 }
 
 // ── Heatmap mensuelle ─────────────────────────────────────────────────────────
+// Consomme le format pivoté : [{ year, Jan, Feb, …, Dec }]
+// null = mois futur ou avant démarrage (cellule grisée)
+
+const MONTH_KEYS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function cellColor(pct) {
+  if (pct == null) return "#1e293b";
+  if (pct >= 10)  return "#00613a";
+  if (pct >= 5)   return "#008a52";
+  if (pct >= 2)   return "#00c96a44";
+  if (pct >= 0)   return "#00c96a22";
+  if (pct >= -2)  return "#ff4d6d22";
+  if (pct >= -5)  return "#ff4d6d44";
+  if (pct >= -10) return "#c0253e";
+  return "#7a0f28";
+}
 
 function MonthlyHeatmap({ data }) {
   if (!data || data.length === 0) {
@@ -97,62 +111,43 @@ function MonthlyHeatmap({ data }) {
     );
   }
 
-  // Organise par année
-  const years = [...new Set(data.map((d) => d.year))].sort();
-  const byYearMonth = {};
-  data.forEach((d) => {
-    byYearMonth[`${d.year}-${d.month}`] = d.return_pct;
-  });
-
-  function cellColor(pct) {
-    if (pct == null) return "#1e293b";
-    if (pct >= 10)  return "#00613a";
-    if (pct >= 5)   return "#008a52";
-    if (pct >= 2)   return "#00c96a44";
-    if (pct >= 0)   return "#00c96a22";
-    if (pct >= -2)  return "#ff4d6d22";
-    if (pct >= -5)  return "#ff4d6d44";
-    if (pct >= -10) return "#c0253e";
-    return "#7a0f28";
-  }
-
   return (
     <div style={{ overflowX: "auto" }}>
       <table style={styles.heatTable}>
         <thead>
           <tr>
             <th style={styles.heatTh}>Année</th>
-            {MONTHS.map((m) => (
+            {MONTH_KEYS.map((m) => (
               <th key={m} style={styles.heatTh}>{m}</th>
             ))}
             <th style={styles.heatTh}>Total</th>
           </tr>
         </thead>
         <tbody>
-          {years.map((yr) => {
-            let totalReturn = 1;
-            const cells = MONTHS.map((_, idx) => {
-              const month = idx + 1;
-              const pct = byYearMonth[`${yr}-${month}`];
-              if (pct != null) totalReturn *= (1 + pct / 100);
-              return { month, pct };
-            });
+          {data.map((row) => {
+            // Rendement total annuel = produit des mois connus
+            const totalReturn = MONTH_KEYS.reduce((acc, m) => {
+              return row[m] != null ? acc * (1 + row[m] / 100) : acc;
+            }, 1);
             const totalPct = (totalReturn - 1) * 100;
             return (
-              <tr key={yr}>
-                <td style={styles.heatYear}>{yr}</td>
-                {cells.map(({ month, pct }) => (
-                  <td
-                    key={month}
-                    style={{
-                      ...styles.heatCell,
-                      background: cellColor(pct),
-                      color: pct == null ? "#475569" : Math.abs(pct) > 2 ? "#e2e8f0" : "#94a3b8",
-                    }}
-                  >
-                    {pct != null ? `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%` : "—"}
-                  </td>
-                ))}
+              <tr key={row.year}>
+                <td style={styles.heatYear}>{row.year}</td>
+                {MONTH_KEYS.map((m) => {
+                  const pct = row[m];
+                  return (
+                    <td
+                      key={m}
+                      style={{
+                        ...styles.heatCell,
+                        background: cellColor(pct),
+                        color: pct == null ? "#334155" : Math.abs(pct) > 2 ? "#e2e8f0" : "#94a3b8",
+                      }}
+                    >
+                      {pct != null ? `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%` : "—"}
+                    </td>
+                  );
+                })}
                 <td
                   style={{
                     ...styles.heatCell,
