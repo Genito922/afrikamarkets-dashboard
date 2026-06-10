@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { to: "/risques",      labelKey: "nav_warroom",      label: "War Room" },
   { to: "/sgi",           labelKey: "sgi_module1",      label: "SGI & OPCVM" },
   { to: "/international", labelKey: "nav_international", label: "Intl" },
+  { to: "/crypto",        labelKey: "nav_crypto",        label: "Crypto" },
   { to: "/pricing",       labelKey: "sub_title",        label: "Abonnement" },
 ];
 
