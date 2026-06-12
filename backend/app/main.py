@@ -7,10 +7,14 @@ from contextlib import asynccontextmanager
 import os
 
 from backend.app.core.database import init_db
-from backend.app.routers import auth, licences, payments
-from backend.app.routers import market, analysis, intel
-from backend.app.routers import african_markets
-from backend.app.routers import performance
+from backend.app.routers import execution,
+     auth, licences, payments
+from backend.app.routers import execution,
+     market, analysis, intel
+from backend.app.routers import execution,
+     african_markets
+from backend.app.routers import execution,
+     performance
 
 
 @asynccontextmanager
@@ -54,6 +58,8 @@ app.include_router(analysis.router)
 app.include_router(intel.router)
 app.include_router(african_markets.router)
 app.include_router(performance.router)
+app.include_router(execution.router, prefix="/api/v1")
+
 
 
 @app.get("/health")

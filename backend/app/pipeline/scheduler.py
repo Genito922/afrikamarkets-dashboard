@@ -17,7 +17,7 @@ scheduler = AsyncIOScheduler(timezone="UTC")
 def start_scheduler() -> None:
     from backend.app.pipeline.jobs import (
         job_scrape_market, job_prefetch_international,
-        job_warroom, job_seed_history,
+        job_warroom, job_seed_history, job_sync_publications,
     )
 
     # ── BRVM : toutes les 15 min (lun-ven 09h-17h UTC) ───────
@@ -79,9 +79,28 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── Publications BRVM : toutes les 4h ─────────────────────
+    scheduler.add_job(
+        job_sync_publications,
+        trigger=CronTrigger(hour="0,4,8,12,16,20", minute="10", timezone="UTC"),
+        id="sync_publications_4h",
+        name="BRVM Publications Sync (4h)",
+        replace_existing=True,
+        misfire_grace_time=600,
+    )
+
+    # ── Publications initial 120s après démarrage ─────────────
+    scheduler.add_job(
+        job_sync_publications,
+        trigger=DateTrigger(run_date=datetime.utcnow() + timedelta(seconds=120)),
+        id="sync_publications_boot",
+        name="BRVM Publications Sync (boot)",
+        replace_existing=True,
+    )
+
     scheduler.start()
     logger.info(
-        "[Scheduler] Démarré — BRVM 15min · Intl 6h · WarRoom lundi · SeedHistory boot+30s"
+        "[Scheduler] Démarré — BRVM 15min · Intl 6h · WarRoom lundi · SeedHistory boot+30s · Publications 4h"
     )
 
 

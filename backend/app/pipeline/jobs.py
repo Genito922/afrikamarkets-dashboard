@@ -348,6 +348,55 @@ async def job_prefetch_international() -> None:
     logger.info("[IntlFetch] Terminé — %d OK / %d KO", ok, ko)
 
 
+# ── Sync publications BRVM ────────────────────────────────────
+
+async def job_sync_publications() -> None:
+    """
+    Scrape les dernières publications EDocman (RSS) et persiste dans
+    IntlMarketCache sous la clé 'BRVM_PUBLICATIONS'.
+    Planifié : toutes les 4h + run initial au boot.
+    """
+    import asyncio
+    from backend.app.pipeline.african_markets import fetch_brvm_publications
+
+    logger.info("[Publications] Synchronisation Research Hub BRVM...")
+    try:
+        loop = asyncio.get_event_loop()
+        docs = await loop.run_in_executor(None, fetch_brvm_publications, 20, True)
+
+        if not docs:
+            logger.warning("[Publications] Aucun document récupéré lors du cycle")
+            return
+
+        payload = json.dumps({
+            "updated_at": datetime.utcnow().isoformat(),
+            "count":      len(docs),
+            "data":       docs,
+        }, ensure_ascii=False)
+
+        async with AsyncSessionLocal() as session:
+            existing = await session.get(IntlMarketCache, "BRVM_PUBLICATIONS")
+            if existing:
+                existing.fetched_at = datetime.utcnow()
+                existing.data_json  = payload
+            else:
+                session.add(IntlMarketCache(
+                    ticker     = "BRVM_PUBLICATIONS",
+                    fetched_at = datetime.utcnow(),
+                    data_json  = payload,
+                ))
+            await session.commit()
+
+        logger.info("[Publications] ✓ %d documents indexés", len(docs))
+
+    except Exception as exc:
+        import traceback
+        logger.error(
+            "[Publications] ✗ %s: %s\n%s",
+            type(exc).__name__, exc, traceback.format_exc(),
+        )
+
+
 # ── War Room UEMOA ────────────────────────────────────────────
 
 async def job_warroom() -> None:

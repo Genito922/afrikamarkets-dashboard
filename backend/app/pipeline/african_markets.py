@@ -598,3 +598,160 @@ def fetch_exchange_listed(slug: str) -> list[dict]:
 
     logger.info("[AM] fetch_exchange_listed(%s) → %d titres", slug, len(results))
     return results
+
+
+# ── fetch_brvm_publications ───────────────────────────────────────────────────
+
+def fetch_brvm_publications(limit: int = 50, use_rss: bool = True) -> list[dict]:
+    """
+    Récupère les publications institutionnelles BRVM depuis le composant EDocman.
+
+    Stratégie :
+      1. RSS (défaut)  : flux structuré avec dates, pas de pagination nécessaire.
+                         Limité aux ~20 publications les plus récentes.
+      2. Table scrape  : pagination sur /publications?layout=table (10 items/page).
+                         Utilisé si use_rss=False ou si le flux RSS est vide.
+
+    Retourne :
+      [{doc_id, titre, ticker, categorie, url_doc, date}]
+    """
+    docs = []
+    if use_rss:
+        docs = _fetch_publications_rss(limit)
+    if not docs:
+        docs = _fetch_publications_table(limit)
+    logger.info("[AM] fetch_brvm_publications → %d documents", len(docs))
+    return docs
+
+
+def _parse_publication_entry(href: str, title: str) -> dict:
+    """
+    Extrait les métadonnées d'un document EDocman depuis son URL et son titre.
+
+    Titre attendu : 'TICKER | Description' ou 'Description seule'.
+    URL attendue  : /fr/component/edocman/{id}-{slug}/viewdocument/{id}?Itemid=0
+    """
+    full_url = href if href.startswith("http") else BASE_URL + href
+
+    # ID numérique du document — deux formats possibles :
+    #   RSS   : /publications/{id}-{slug}
+    #   Table : /component/edocman/{id}-{slug}/viewdocument/{id}
+    m_id = re.search(r"/viewdocument/(\d+)", href) or re.search(r"/publications/(\d+)-", href)
+    doc_id = int(m_id.group(1)) if m_id else None
+
+    # Ticker : partie avant le premier ' | ' si présente et courte (2-6 chars)
+    ticker = "BRVM"
+    if " | " in title:
+        candidate = title.split(" | ")[0].strip()
+        if re.fullmatch(r"[A-Z0-9]{2,6}", candidate):
+            ticker = candidate
+
+    # Catégorie déduite du titre / slug
+    slug = href.lower()
+    raw  = title.lower()
+    if "notation" in slug or "notation" in raw:
+        categorie = "Notation financière"
+    elif "cotation" in slug or "cotation" in raw or "premiere-cotation" in slug:
+        categorie = "Résultat de cotation"
+    elif "communique" in slug or "communiqué" in raw:
+        categorie = "Communiqué"
+    elif "profit-warning" in slug or "profit warning" in raw:
+        categorie = "Profit Warning"
+    elif "obligation" in slug or "obligation" in raw or "emprunt" in slug:
+        categorie = "Emprunt obligataire"
+    elif "rapport" in slug or "rapport" in raw or "annual" in slug:
+        categorie = "Rapport annuel"
+    else:
+        categorie = "Publication"
+
+    return {
+        "doc_id":    doc_id,
+        "titre":     title,
+        "ticker":    ticker,
+        "categorie": categorie,
+        "url_doc":   full_url,
+        "date":      None,  # sera enrichi par l'appelant
+    }
+
+
+def _fetch_publications_rss(limit: int) -> list[dict]:
+    """Parse le flux RSS EDocman pour récupérer les publications récentes avec dates."""
+    import xml.etree.ElementTree as ET
+
+    try:
+        with _client() as client:
+            r = client.get(
+                BASE_URL + "/fr/bourse/brvm/publications?layout=table&format=feed&type=rss",
+                timeout=20,
+            )
+            r.raise_for_status()
+    except Exception as exc:
+        logger.warning("[AM] RSS publications indisponible : %s", exc)
+        return []
+
+    try:
+        root = ET.fromstring(r.content)
+    except ET.ParseError as exc:
+        logger.warning("[AM] RSS parse error : %s", exc)
+        return []
+
+    ns    = {"dc": "http://purl.org/dc/elements/1.1/"}
+    items = root.findall(".//item")
+    docs  = []
+
+    for item in items[:limit]:
+        title = (item.findtext("title") or "").strip()
+        link  = (item.findtext("link")  or "").strip()
+        # La date est dans <pubDate> (RFC 822) ou <dc:date>
+        pub_date = item.findtext("pubDate") or item.findtext("dc:date", namespaces=ns) or ""
+
+        if not link or not title:
+            continue
+
+        entry = _parse_publication_entry(link, title)
+        entry["date"] = pub_date.strip()
+        docs.append(entry)
+
+    return docs
+
+
+def _fetch_publications_table(limit: int) -> list[dict]:
+    """Scrape le tableau paginé /publications?layout=table (10 items/page)."""
+    docs  = []
+    start = 0
+
+    while len(docs) < limit:
+        path = f"/fr/bourse/brvm/publications?layout=table&start={start}"
+        try:
+            soup = _get(path)
+        except Exception as exc:
+            logger.warning("[AM] Table publications page start=%d : %s", start, exc)
+            break
+
+        rows = soup.select("table.edocman_document_list tr")
+        if not rows:
+            break
+
+        page_docs = []
+        for tr in rows:
+            a = tr.find("a", class_="edocman_document_link", href=True)
+            if not a:
+                continue
+            title = _text(a)
+            href  = a["href"]
+            if not title or not href:
+                continue
+            page_docs.append(_parse_publication_entry(href, title))
+
+        if not page_docs:
+            break
+
+        docs.extend(page_docs)
+        start += 10
+
+        # Vérifie s'il y a une page suivante
+        next_page = soup.select_one("ul.pagination li:not(.disabled):not(.active) a[title]")
+        if not next_page:
+            break
+
+    return docs[:limit]

@@ -1,0 +1,110 @@
+=================================================================
+MULTI-REGIME ENGINE  |  4h  3 ans
+Univers : BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, XAUUSD
+Strategies : SMATrend(16/246/361) | MeanReversion | RiskOff
+=================================================================
+
+=================================================================
+  BTCUSDT  [crypto]
+=================================================================
+  [BTCUSDT] Binance Futures (1095j, 4h)... => 6,570 bougies
+  Regimes : trend=51.5% range=31.2% high_vol=17.3%
+  Signaux apres routing : LONG=1,430 SHORT=870 NEUTRE=3,891
+  Bars utilisables : 6,191
+
+  FULL PERIOD
+  PnL: +21.9%  Sharpe: 0.395  MaxDD: -34.1%  PF: 1.162  Trades: 290  B&H: +135.7%
+
+  WALK-FORWARD BTCUSDT  (3 folds)
+  Fold             IS            OOS    IS Sh   OOS Sh   OOS PnL      PF     DD%   Trades    Ratio
+  --------------------------------------------------------------------------------------
+     1  2023-06->2024-04  2024-04->2024-07    1.894    0.216      +0.0%   1.358   -15.6       30    0.114  OVERFIT
+     2  2024-07->2025-03  2025-03->2025-07    0.197   -2.185     -15.1%   0.136   -20.6       26  -11.091
+     3  2025-07->2026-02  2026-02->2026-06    1.203   -1.681     -10.2%   0.720   -17.2       25   -1.397  OVERFIT
+
+  OOS moyen  Sharpe: -1.217 (std 1.034) | PF: 0.738 | Overfits: 2/3
+  VERDICT : PAS D'EDGE OOS CONFIRME — ne pas deployer
+
+=================================================================
+  ETHUSDT  [crypto]
+=================================================================
+  [ETHUSDT] Binance Futures (1095j, 4h)... => 6,570 bougies
+  Regimes : trend=49.9% range=33.2% high_vol=16.9%
+  Signaux apres routing : LONG=1,235 SHORT=973 NEUTRE=3,983
+  Bars utilisables : 6,191
+
+  FULL PERIOD
+  PnL: -52.9%  Sharpe: -0.561  MaxDD: -64.0%  PF: 1.009  Trades: 286  B&H: -6.4%
+
+  WALK-FORWARD ETHUSDT  (3 folds)
+  Fold             IS            OOS    IS Sh   OOS Sh   OOS PnL      PF     DD%   Trades    Ratio
+  --------------------------------------------------------------------------------------
+     1  2023-06->2024-04  2024-04->2024-07    0.767   -1.336     -15.5%   0.690   -24.0       38   -1.742  OVERFIT
+     2  2024-07->2025-03  2025-03->2025-07   -1.718   -2.869     -29.2%   0.672   -43.3       24    1.670
+     3  2025-07->2026-02  2026-02->2026-06    0.667   -1.086      -7.6%   1.387   -16.6       21   -1.628  OVERFIT
+
+  OOS moyen  Sharpe: -1.764 (std 0.788) | PF: 0.916 | Overfits: 2/3
+  VERDICT : PAS D'EDGE OOS CONFIRME — ne pas deployer
+
+=================================================================
+  SOLUSDT  [crypto]
+=================================================================
+  [SOLUSDT] Binance Futures (1095j, 4h)... => 6,570 bougies
+  Regimes : trend=53.0% range=31.6% high_vol=15.4%
+  Signaux apres routing : LONG=1,211 SHORT=1,042 NEUTRE=3,938
+  Bars utilisables : 6,191
+
+  FULL PERIOD
+  PnL: -56.7%  Sharpe: -0.391  MaxDD: -79.4%  PF: 0.943  Trades: 292  B&H: +295.1%
+
+  WALK-FORWARD SOLUSDT  (3 folds)
+  Fold             IS            OOS    IS Sh   OOS Sh   OOS PnL      PF     DD%   Trades    Ratio
+  --------------------------------------------------------------------------------------
+     1  2023-06->2024-04  2024-04->2024-07    1.071   -3.002     -38.4%   0.583   -46.7       34   -2.803  OVERFIT
+     2  2024-07->2025-03  2025-03->2025-07   -2.038   -1.117     -11.8%   0.641   -24.5       23    0.548
+     3  2025-07->2026-02  2026-02->2026-06    0.467   -0.589      -3.9%   0.781   -18.6       36   -1.261
+
+  OOS moyen  Sharpe: -1.569 (std 1.036) | PF: 0.668 | Overfits: 1/3
+  VERDICT : PAS D'EDGE OOS CONFIRME — ne pas deployer
+
+=================================================================
+  XRPUSDT  [crypto]
+=================================================================
+  [XRPUSDT] Binance Futures (1095j, 4h)... => 6,570 bougies
+  Regimes : trend=51.4% range=32.8% high_vol=15.8%
+  Signaux apres routing : LONG=803 SHORT=1,142 NEUTRE=4,246
+  Bars utilisables : 6,191
+
+  FULL PERIOD
+  PnL: -55.3%  Sharpe: -0.517  MaxDD: -67.1%  PF: 0.976  Trades: 261  B&H: +123.7%
+
+  WALK-FORWARD XRPUSDT  (3 folds)
+  Fold             IS            OOS    IS Sh   OOS Sh   OOS PnL      PF     DD%   Trades    Ratio
+  --------------------------------------------------------------------------------------
+     1  2023-06->2024-04  2024-04->2024-07    0.377   -0.214      -2.8%   3.119   -16.9       20   -0.568
+     2  2024-07->2025-03  2025-03->2025-07   -0.466   -0.394      -5.1%   0.662   -21.7       25    0.845
+     3  2025-07->2026-02  2026-02->2026-06   -0.832   -1.852     -17.1%   0.843   -27.5       33    2.226
+
+  OOS moyen  Sharpe: -0.820 (std 0.733) | PF: 1.541 | Overfits: 0/3
+  VERDICT : PAS D'EDGE OOS CONFIRME — ne pas deployer
+
+=================================================================
+  XAUUSD  [commodity]
+=================================================================
+  ERREUR chargement : pip install yfinance
+
+===============================================================================================
+COMPARATIF MULTI-ACTIFS  SMA 16/246/361  4h  3ans
+===============================================================================================
+  Symbol       Class         PnL%  Sharpe    DD%     PF  Trades   OOS_Sh   OOS_PF   OF  GO
+-----------------------------------------------------------------------------------------------
+  BTCUSDT      crypto       +21.9   0.395  -34.1  1.162     290   -1.217    0.738    2  --
+  ETHUSDT      crypto       -52.9  -0.561  -64.0  1.009     286   -1.764    0.916    2  --
+  SOLUSDT      crypto       -56.7  -0.391  -79.4  0.943     292   -1.569    0.668    1  --
+  XRPUSDT      crypto       -55.3  -0.517  -67.1  0.976     261   -0.820    1.541    0  --
+===============================================================================================
+
+GO (0/4) : aucun
+Criteres GO : OOS Sharpe>=0.8, OOS PF>=1.3, 0 overfit, std<0.4, trades>=10
+
+Aucun actif GO — allocation non calculee.

@@ -1,0 +1,92 @@
+[
+  {
+    "code": "BRVM",
+    "nom": "BRVM",
+    "pays": "Afrique Ouest",
+    "devise": "XOF",
+    "flag": "🇨🇮",
+    "date_maj": "2026-06-10",
+    "capitalisation": 16781083.09
+  },
+  {
+    "code": "BSE",
+    "nom": "BSE",
+    "pays": "Botswana",
+    "devise": "BWP",
+    "flag": "🇧🇼",
+    "date_maj": "2026-06-10",
+    "capitalisation": 1013158.52
+  },
+  {
+    "code": "BVC",
+    "nom": "BVC",
+    "pays": "Cameroun",
+    "devise": "XAF",
+    "flag": "🇨🇲",
+    "date_maj": "2026-06-10",
+    "capitalisation": 1033254.9
+  },
+  {
+    "code": "DSE",
+    "nom": "DSE",
+    "pays": "Tanzanie",
+    "devise": "TZS",
+    "flag": "🇹🇿",
+    "date_maj": "2026-06-10",
+    "capitalisation": 34120.86
+  },
+  {
+    "code": "EGX",
+    "nom": "EGX",
+    "pays": "Egypte",
+    "devise": "EGP",
+    "flag": "🇪🇬",
+    "date_maj": "2026-06-10",
+    "capitalisation": 3749.09
+  },
+  {
+    "code": "GSE",
+    "nom": "GSE",
+    "pays": "Ghana",
+    "devise": "GHS",
+    "flag": "🇬🇭",
+    "date_maj": "2026-06-10",
+    "capitalisation": 245719.85
+  },
+  {
+    "code": "LUSE",
+    "nom": "LUSE",
+    "pays": "Zambie",
+    "devise": "ZMW",
+    "flag": "🇿🇲",
+    "date_maj": "2026-06-10",
+    "capitalisation": 144265.62
+  },
+  {
+    "code": "MSE",
+    "nom": "MSE",
+    "pays": "Malawi",
+    "devise": "MWK",
+    "flag": "🇲🇼",
+    "date_maj": "2026-06-10",
+    "capitalisation": 28009570.8
+  },
+  {
+    "code": "NGSE",
+    "nom": "NGX",
+    "pays": "Nigeria",
+    "devise": "NGN",
+    "flag": "🇳🇬",
+    "date_maj": "2026-06-10",
+    "capitalisation": 156989.74
+  },
+  {
+    "code": "NSE",
+    "nom": "NSE",
+    "pays": "Kenya",
+    "devise": "KES",
+    "flag": "🇰🇪",
+    "date_maj": "2026-06-10",
+    "capitalisation": 3241.18
+  }
+]

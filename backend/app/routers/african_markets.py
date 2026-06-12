@@ -112,6 +112,32 @@ async def get_news(limit: int = Query(20, ge=1, le=50)):
     return {"source": "live", "count": len(data), "data": data}
 
 
+@router.get("/publications")
+async def get_publications(
+    limit: int = Query(20, ge=1, le=100),
+    use_rss: bool = Query(True, description="RSS (rapide, ~10 items récents) ou scraping tabulaire paginé"),
+):
+    """
+    Publications institutionnelles BRVM : notations financières, communiqués,
+    résultats de cotation, profit warnings, emprunts obligataires.
+    Source : EDocman african-markets.com.
+    """
+    key = f"publications:{limit}:{use_rss}"
+    cached = _cache_get(key)
+    if cached is not None:
+        return {"source": "cache", "count": len(cached), "data": cached}
+    try:
+        from backend.app.pipeline.african_markets import fetch_brvm_publications
+        data = await asyncio.get_event_loop().run_in_executor(
+            None, fetch_brvm_publications, limit, use_rss
+        )
+    except Exception as exc:
+        logger.error("[AM router] /publications — %s", exc)
+        raise HTTPException(status_code=502, detail=str(exc))
+    _cache_set(key, data)
+    return {"source": "live", "count": len(data), "data": data}
+
+
 # ── Catalogue bourses africaines ──────────────────────────────────────────────
 
 @router.get("/exchanges")

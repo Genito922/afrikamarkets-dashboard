@@ -1,0 +1,32 @@
+=================================================================
+MULTI-REGIME ENGINE  |  4h  3 ans
+Univers : BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, XAUUSD
+Strategies : SMATrend(16/246/361) | MeanReversion | RiskOff
+=================================================================
+
+=================================================================
+  BTCUSDT  [crypto]
+=================================================================
+  [BTCUSDT] Binance Futures (1095j, 4h)... => 6,570 bougies
+  Regimes : trend=51.5% range=31.2% high_vol=17.3%
+  Signaux apres routing : LONG=1,430 SHORT=870 NEUTRE=3,891
+  Bars utilisables : 6,191
+
+  FULL PERIOD
+  PnL: +21.9%  Sharpe: 0.395  MaxDD: -34.1%  PF: 1.162  Trades: 290  B&H: +136.6%
+
+  WALK-FORWARD BTCUSDT  (3 folds)
+  Fold             IS            OOS    IS Sh   OOS Sh   OOS PnL      PF     DD%   Trades    Ratio
+  --------------------------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Afrika_Banque_Project\brvm-analyzer\brvm-trading\multi_regime\main.py", line 191, in <module>
+    main()
+  File "C:\Afrika_Banque_Project\brvm-analyzer\brvm-trading\multi_regime\main.py", line 178, in main
+    res = run_asset(symbol)
+  File "C:\Afrika_Banque_Project\brvm-analyzer\brvm-trading\multi_regime\main.py", line 95, in run_asset
+    WalkForward.print_folds(folds, symbol)
+  File "C:\Afrika_Banque_Project\brvm-analyzer\brvm-trading\multi_regime\backtest.py", line 195, in print_folds
+    print(
+  File "C:\Program Files\Python310\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 15: character maps to <undefined>

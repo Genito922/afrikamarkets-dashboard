@@ -1,0 +1,29 @@
+{
+  "run_at": "2026-06-10T14:52:36.820745+00:00",
+  "assets": {
+    "BTCUSDT": {
+      "close": 61843.5,
+      "regime": "bear",
+      "consec_days": 0,
+      "deploy_ready": false,
+      "signal_b": 0,
+      "dist_pct": -25.991,
+      "rsi14": 24.9,
+      "mfi14": 16.3,
+      "flipped_up": false,
+      "flipped_down": false
+    },
+    "SOLUSDT": {
+      "close": 64.76,
+      "regime": "bear",
+      "consec_days": 0,
+      "deploy_ready": false,
+      "signal_b": 0,
+      "dist_pct": -37.5,
+      "rsi14": 26.6,
+      "mfi14": 21.9,
+      "flipped_up": false,
+      "flipped_down": false
+    }
+  }
+}

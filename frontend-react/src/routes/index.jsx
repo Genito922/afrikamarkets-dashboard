@@ -27,6 +27,7 @@ import SGICenter    from "../pages/SGICenter";
 import MarchesInternationaux from "../pages/MarchesInternationaux";
 import CryptoAnalyse         from "../pages/CryptoAnalyse";
 import PerformanceDashboard  from "../pages/PerformanceDashboard";
+import TradingGuard          from "../pages/TradingGuard";
 
 export default function AppRoutes() {
   return (
@@ -83,6 +84,9 @@ export default function AppRoutes() {
       } />
       <Route path="/performance" element={
         <ProtectedRoute minPlan="expert"><PerformanceDashboard /></ProtectedRoute>
+      } />
+      <Route path="/trading-guard" element={
+        <ProtectedRoute minPlan="expert"><TradingGuard /></ProtectedRoute>
       } />
 
       <Route path="*" element={<NotFound />} />
