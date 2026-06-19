@@ -4,8 +4,8 @@ Route les ordres vers Binance / Exness / Deriv via une interface unique.
 """
 import os
 from backend.app.brokers.base    import BaseBrokerConnector
-from backend.app.brokers.binance import BinanceBrokerConnector
-from backend.app.brokers.exness  import ExnessBrokerConnector
+from backend.app.brokers.binance import BinanceConnector
+from backend.app.brokers.exness  import ExnessConnector
 from backend.app.brokers.deriv   import DerivBrokerConnector
 
 # Mapping symbole → broker par défaut
@@ -42,13 +42,13 @@ class BrokerExecutionFactory:
             symbol_or_broker.lower()
         )
         if broker_name == "binance":
-            return BinanceBrokerConnector(
+            return BinanceConnector(
                 api_key    = os.environ.get("BINANCE_API_KEY",""),
                 api_secret = os.environ.get("BINANCE_SECRET_KEY",""),
                 testnet    = os.environ.get("ENVIRONMENT","production") != "production",
             )
         elif broker_name == "exness":
-            return ExnessBrokerConnector(
+            return ExnessConnector(
                 account = os.environ.get("EXNESS_ACCOUNT",""),
                 password= os.environ.get("EXNESS_PASSWORD",""),
                 server  = os.environ.get("EXNESS_SERVER","Exness-MT5Real"),
