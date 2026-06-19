@@ -1,7 +1,22 @@
+import { useState } from "react";
 import Navbar from "./components/Navbar";
 import AppRoutes from "./routes";
+import Onboarding from "./pages/Onboarding";
 
 export default function App() {
+  const [onboardingDone, setOnboardingDone] = useState(
+    () => localStorage.getItem("onboarding_done") === "true"
+  );
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem("onboarding_done", "true");
+    setOnboardingDone(true);
+  };
+
+  if (!onboardingDone) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
