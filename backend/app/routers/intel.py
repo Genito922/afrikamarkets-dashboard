@@ -377,13 +377,24 @@ def _fetch_coingecko(yf_ticker: str, days: int):
     import httpx
 
     coin_id = _COINGECKO_MAP[yf_ticker]
-    resp = httpx.get(
-        f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart",
-        params={"vs_currency": "usd", "days": max(days, 2), "interval": "daily"},
-        timeout=15,
-        headers={"Accept": "application/json"},
-    )
-    resp.raise_for_status()
+    try:
+        resp = httpx.get(
+            f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart",
+            params={"vs_currency": "usd", "days": max(days, 2), "interval": "daily"},
+            timeout=15,
+            headers={"Accept": "application/json"},
+        )
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        code = exc.response.status_code
+        if code == 429:
+            logger.warning("[coingecko] rate-limit 429 sur %s — réessayer plus tard", yf_ticker)
+        else:
+            logger.warning("[coingecko] HTTP %s sur %s", code, yf_ticker)
+        return pd.DataFrame()
+    except Exception as exc:
+        logger.warning("[coingecko] erreur reseau %s — %s", yf_ticker, exc)
+        return pd.DataFrame()
     raw = resp.json()
 
     prices  = raw.get("prices") or []

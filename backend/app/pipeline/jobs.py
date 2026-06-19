@@ -334,16 +334,14 @@ async def job_prefetch_international() -> None:
 
             ok += 1
             logger.info("[IntlFetch] ✓ %s (%d pts)", ticker, n)
-            await asyncio.sleep(8)   # Twelve Data free tier : 8 calls/min → ≥7.5s entre appels
+            # CoinGecko free tier : ~5 req/min → 15s ; TwelveData : 8 calls/min → 8s
+            delay = 15 if ticker in ("BTC-USD", "ETH-USD", "BNB-USD", "XRP-USD") else 8
+            await asyncio.sleep(delay)
 
         except Exception as exc:
-            import traceback
             ko += 1
-            logger.error(
-                "[IntlFetch] ✗ %s — %s: %s\n%s",
-                ticker, type(exc).__name__, exc, traceback.format_exc()
-            )
-            await asyncio.sleep(3)
+            logger.warning("[IntlFetch] ✗ %s — %s: %s", ticker, type(exc).__name__, exc)
+            await asyncio.sleep(5)
 
     logger.info("[IntlFetch] Terminé — %d OK / %d KO", ok, ko)
 
