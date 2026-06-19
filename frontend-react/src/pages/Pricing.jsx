@@ -1,18 +1,12 @@
 import { useTranslation } from "react-i18next";
-import PlanCard from "../components/PlanCard";
+import { useNavigate } from "react-router-dom";
 
-const LS = {
-  starter:        "https://afrika-markets-stock.lemonsqueezy.com/checkout/buy/737c9823-4248-488a-a736-e22820f23e18",
-  pro:            "https://afrika-markets-stock.lemonsqueezy.com/checkout/buy/ae008a73-cf01-41e6-b602-270c9a943409",
-  expert:         "https://afrika-markets-stock.lemonsqueezy.com/checkout/buy/12ca2955-7928-4a10-8266-59cfbcf13078",
-  expert_premium: "https://afrika-markets-stock.lemonsqueezy.com/checkout/buy/d7672acb-6acb-40f0-b5eb-a4022f7fc7c0",
-};
-
+// Prix XOF (FCFA) — synchronisés avec backend/app/routers/paydunya.py
 const PLANS = [
   {
     key: "starter",
-    price: "$29.99",
-    ctaHref: LS.starter,
+    price_xof: "18 000",
+    price_usd: "$29.99",
     features: {
       fr: ["Dashboard BRVM complet", "Tous les indices & secteurs", "Top 10 mouvements journaliers", "War Room géopolitique (basique)", "Support par email"],
       en: ["Full BRVM dashboard", "All indices & sectors", "Daily top 10 movers", "War Room (basic)", "Email support"],
@@ -24,9 +18,9 @@ const PLANS = [
   },
   {
     key: "pro",
-    price: "$74.99",
+    price_xof: "45 000",
+    price_usd: "$74.99",
     popular: true,
-    ctaHref: LS.pro,
     features: {
       fr: ["Tout Starter +", "Scoring & classement IA", "War Room complet", "Simulateur de portefeuille", "Alertes prix & risques", "SGI & OPCVM Intelligence Center", "Brief intelligence hebdomadaire"],
       en: ["All Starter +", "AI Scoring & ranking", "Full War Room access", "Portfolio Simulator", "Price & risk alerts", "SGI & OPCVM Intelligence Center", "Weekly intelligence brief"],
@@ -38,8 +32,8 @@ const PLANS = [
   },
   {
     key: "expert",
-    price: "$199.99",
-    ctaHref: LS.expert,
+    price_xof: "115 000",
+    price_usd: "$199.99",
     features: {
       fr: ["Tout Pro +", "Briefing 1-on-1 mensuel", "Watchlists personnalisées", "Export données CSV/PDF", "Support prioritaire", "Rapports PDF clients", "Accès anticipé aux nouvelles fonctionnalités"],
       en: ["All Pro +", "Monthly 1-on-1 briefing", "Custom watchlists", "CSV/PDF data export", "Priority support", "Client PDF reports", "Early access to new features"],
@@ -51,8 +45,8 @@ const PLANS = [
   },
   {
     key: "expert_premium",
-    price: "$299.99",
-    ctaHref: LS.expert_premium,
+    price_xof: "170 000",
+    price_usd: "$299.99",
     features: {
       fr: ["Tout Expert +", "Accès API données brutes", "Modèles de valorisation exclusifs", "Briefings illimités", "Onboarding dédié", "SLA prioritaire 24/7", "Co-branding rapports clients"],
       en: ["All Expert +", "Raw data API access", "Exclusive valuation models", "Unlimited briefings", "Dedicated onboarding", "Priority SLA 24/7", "Client report co-branding"],
@@ -79,11 +73,11 @@ const PLAN_BADGES = {
 };
 
 function PricingCard({ plan, popular = false }) {
-  const { t } = useTranslation();
-  const lang = useTranslation().i18n.language;
-  const badge  = PLAN_BADGES[plan.key];
-  const border = PLAN_COLORS[plan.key];
-  const features = plan.features[lang] || plan.features.en;
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const badge    = PLAN_BADGES[plan.key];
+  const border   = PLAN_COLORS[plan.key];
+  const features = plan.features[i18n.language] || plan.features.en;
 
   return (
     <div
@@ -103,10 +97,11 @@ function PricingCard({ plan, popular = false }) {
         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium mb-3 ${badge.bg} ${badge.text}`}>
           {badge.label}
         </span>
-        <div className="flex items-end gap-1">
-          <span className="text-3xl font-bold text-white">{plan.price}</span>
-          <span className="text-gray-400 text-sm mb-1">/mo</span>
+        <div className="flex items-end gap-2">
+          <span className="text-3xl font-bold text-white">{plan.price_xof}</span>
+          <span className="text-gray-400 text-sm mb-1">FCFA/mois</span>
         </div>
+        <p className="text-gray-500 text-xs mt-1">{plan.price_usd}/mo</p>
       </div>
 
       <ul className="flex flex-col gap-2 flex-1">
@@ -118,10 +113,8 @@ function PricingCard({ plan, popular = false }) {
         ))}
       </ul>
 
-      <a
-        href={plan.ctaHref}
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        onClick={() => navigate(`/checkout?plan=${plan.key}`)}
         className={`inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold
                     text-white text-sm transition-all duration-200 w-full text-center
                     ${popular
@@ -131,7 +124,7 @@ function PricingCard({ plan, popular = false }) {
                         : "bg-gray-700 hover:bg-gray-600"}`}
       >
         {t("free_trial_btn")} →
-      </a>
+      </button>
     </div>
   );
 }

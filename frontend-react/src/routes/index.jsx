@@ -2,11 +2,12 @@ import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "../components/ProtectedRoute";
 
 // Public
-import Login        from "../pages/Login";
-import Register     from "../pages/Register";
-import Overview     from "../pages/Overview";
-import Pricing      from "../pages/Pricing";
-import NotFound     from "../pages/NotFound";
+import Login              from "../pages/Login";
+import Register           from "../pages/Register";
+import Overview           from "../pages/Overview";
+import Pricing            from "../pages/Pricing";
+import PaydunyaCheckout   from "../pages/PaydunyaCheckout";
+import NotFound           from "../pages/NotFound";
 
 // App — authentification requise
 import Dashboard    from "../pages/Dashboard";
@@ -37,7 +38,8 @@ export default function AppRoutes() {
       <Route path="/overview" element={<Overview />} />
       <Route path="/login"    element={<Login />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/pricing"  element={<Pricing />} />
+      <Route path="/pricing"   element={<Pricing />} />
+      <Route path="/checkout"  element={<PaydunyaCheckout />} />
 
       {/* ── Authentification requise (tout plan) ────────── */}
       <Route path="/dashboard" element={
