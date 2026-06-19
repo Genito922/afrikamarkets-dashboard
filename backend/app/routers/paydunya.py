@@ -1,7 +1,15 @@
 """
 Afrika Markets Intelligence — PayDunya Payment Router
-Couvre : Wave CI, Orange Money CI/SN/BF, MTN MoMo CI, Moov CI, Airtel TG
-Documentation : https://developers.paydunya.com
+Opérateurs supportés (source : https://developers.paydunya.com) :
+  CI  : wave-ci, orange-money-ci, mtn-ci, moov-ci, djamo-ci
+  SN  : wave-senegal, orange-money-senegal, free-money-senegal,
+        expresso-sn, wizall-senegal, djamo-sn
+  BF  : orange-money-burkina, moov-burkina-faso
+  ML  : orange-money-mali, moov-ml
+  TG  : t-money-togo, moov-togo
+  BJ  : mtn-benin, moov-benin
+  CM  : mtn-cameroun  (XAF)
+  ALL : card (CB internationale)
 """
 import os
 import uuid
@@ -29,51 +37,86 @@ FRONTEND_URL   = os.getenv("FRONTEND_URL", "https://afrikamarkets-dashboard.stre
 API_BASE_URL   = os.getenv("API_BASE_URL", "")
 
 BASE_URL = "https://app.paydunya.com/api/v1"
-HEADERS  = {
-    "Content-Type":         "application/json",
-    "PAYDUNYA-MASTER-KEY":  PD_MASTER_KEY,
-    "PAYDUNYA-PRIVATE-KEY": PD_PRIVATE_KEY,
-    "PAYDUNYA-TOKEN":       PD_TOKEN,
-}
 
-# ── Prix des plans en XOF ─────────────────────────────────────
+def _headers():
+    """Headers dynamiques — lit les env vars au moment de la requête (pas au démarrage)."""
+    return {
+        "Content-Type":         "application/json",
+        "PAYDUNYA-MASTER-KEY":  os.getenv("PAYDUNYA_MASTER_KEY", ""),
+        "PAYDUNYA-PRIVATE-KEY": os.getenv("PAYDUNYA_PRIVATE_KEY", ""),
+        "PAYDUNYA-TOKEN":       os.getenv("PAYDUNYA_TOKEN", ""),
+    }
+
+# ── Prix des plans ────────────────────────────────────────────
+# XOF = UEMOA (CI/SN/BF/ML/TG/BJ) — 1 USD ≈ 600 XOF
+# XAF = CEMAC (CM)                  — 1 USD ≈ 600 XAF (même taux EUR)
 PLANS_XOF = {
-    "starter":        {"xof": 18000,  "usd": 29.99,  "label": "Starter"},
-    "pro":            {"xof": 45000,  "usd": 74.99,  "label": "Pro"},
-    "expert":         {"xof": 115000, "usd": 199.99, "label": "Expert"},
-    "expert_premium": {"xof": 170000, "usd": 299.99, "label": "Expert Premium"},
+    "starter":        {"xof": 18000,  "xaf": 18000,  "usd": 29.99,  "label": "Starter"},
+    "pro":            {"xof": 45000,  "xaf": 45000,  "usd": 74.99,  "label": "Pro"},
+    "expert":         {"xof": 115000, "xaf": 115000, "usd": 199.99, "label": "Expert"},
+    "expert_premium": {"xof": 170000, "xaf": 170000, "usd": 299.99, "label": "Expert Premium"},
 }
 
-# ── Endpoints SOFTPAY par opérateur ──────────────────────────
+# ── Catalogue des opérateurs ──────────────────────────────────
+# type :
+#   "wave"       → flux redirect (pas de numéro requis à l'init)
+#   "orange_ci"  → champ spécial orange_money_ci_customer_number
+#   "phone"      → champ customer_phone (standard)
+#   "card"       → checkout page (CB internationale)
 OPERATORS = {
-    "wave_ci":          "/softpay/wave-ci",
-    "orange_money_ci":  "/softpay/orange-money-ci",
-    "orange_money_sn":  "/softpay/orange-money-senegal",
-    "orange_money_bf":  "/softpay/orange-money-burkina",
-    "mtn_ci":           "/softpay/mtn-ci",
-    "moov_ci":          "/softpay/moov-ci",
-    "airtel_tg":        "/softpay/airtel-togo",
+    # ── Côte d'Ivoire ──────────────────────────────────────
+    "wave-ci":            {"path": "/softpay/wave-ci",           "type": "wave",     "currency": "XOF", "pays": "CI",    "label": "Wave CI",           "flag": "🌊", "frais": "1%"},
+    "orange-money-ci":    {"path": "/softpay/orange-money-ci",   "type": "orange_ci","currency": "XOF", "pays": "CI",    "label": "Orange Money CI",   "flag": "🟠", "frais": "2%"},
+    "mtn-ci":             {"path": "/softpay/mtn-ci",            "type": "phone",    "currency": "XOF", "pays": "CI",    "label": "MTN MoMo CI",       "flag": "🟡", "frais": "2%"},
+    "moov-ci":            {"path": "/softpay/moov-ci",           "type": "phone",    "currency": "XOF", "pays": "CI",    "label": "Moov Money CI",     "flag": "🔵", "frais": "2%"},
+    "djamo-ci":           {"path": "/softpay/djamo-ci",          "type": "phone",    "currency": "XOF", "pays": "CI",    "label": "Djamo CI",          "flag": "💜", "frais": "1.5%"},
+    # ── Sénégal ────────────────────────────────────────────
+    "wave-senegal":       {"path": "/softpay/wave-senegal",      "type": "wave",     "currency": "XOF", "pays": "SN",    "label": "Wave Sénégal",      "flag": "🌊", "frais": "1%"},
+    "orange-money-senegal":{"path":"/softpay/orange-money-senegal","type":"phone",   "currency": "XOF", "pays": "SN",    "label": "Orange Money SN",   "flag": "🟠", "frais": "2%"},
+    "free-money-senegal": {"path": "/softpay/free-money-senegal","type": "phone",    "currency": "XOF", "pays": "SN",    "label": "Free Money SN",     "flag": "🟣", "frais": "2%"},
+    "expresso-sn":        {"path": "/softpay/expresso-sn",       "type": "phone",    "currency": "XOF", "pays": "SN",    "label": "Expresso SN",       "flag": "🔴", "frais": "2%"},
+    "wizall-senegal":     {"path": "/softpay/wizall-senegal",    "type": "phone",    "currency": "XOF", "pays": "SN",    "label": "Wizall SN",         "flag": "🟢", "frais": "2%"},
+    "djamo-sn":           {"path": "/softpay/djamo-sn",          "type": "phone",    "currency": "XOF", "pays": "SN",    "label": "Djamo SN",          "flag": "💜", "frais": "1.5%"},
+    # ── Burkina Faso ───────────────────────────────────────
+    "orange-money-burkina":{"path":"/softpay/orange-money-burkina","type":"phone",   "currency": "XOF", "pays": "BF",    "label": "Orange Money BF",   "flag": "🟠", "frais": "2%"},
+    "moov-burkina-faso":  {"path": "/softpay/moov-burkina-faso", "type": "phone",    "currency": "XOF", "pays": "BF",    "label": "Moov BF",           "flag": "🔵", "frais": "2%"},
+    # ── Mali ───────────────────────────────────────────────
+    "orange-money-mali":  {"path": "/softpay/orange-money-mali", "type": "phone",    "currency": "XOF", "pays": "ML",    "label": "Orange Money ML",   "flag": "🟠", "frais": "2%"},
+    "moov-ml":            {"path": "/softpay/moov-ml",           "type": "phone",    "currency": "XOF", "pays": "ML",    "label": "Moov Mali",         "flag": "🔵", "frais": "2%"},
+    # ── Togo ───────────────────────────────────────────────
+    "t-money-togo":       {"path": "/softpay/t-money-togo",      "type": "phone",    "currency": "XOF", "pays": "TG",    "label": "T-Money TG",        "flag": "🟤", "frais": "2%"},
+    "moov-togo":          {"path": "/softpay/moov-togo",         "type": "phone",    "currency": "XOF", "pays": "TG",    "label": "Moov Togo",         "flag": "🔵", "frais": "2%"},
+    # ── Bénin ──────────────────────────────────────────────
+    "mtn-benin":          {"path": "/softpay/mtn-benin",         "type": "phone",    "currency": "XOF", "pays": "BJ",    "label": "MTN MoMo BJ",       "flag": "🟡", "frais": "2%"},
+    "moov-benin":         {"path": "/softpay/moov-benin",        "type": "phone",    "currency": "XOF", "pays": "BJ",    "label": "Moov Bénin",        "flag": "🔵", "frais": "2%"},
+    # ── Cameroun (XAF) ────────────────────────────────────
+    "mtn-cameroun":       {"path": "/softpay/mtn-cameroun",      "type": "phone",    "currency": "XAF", "pays": "CM",    "label": "MTN MoMo CM",       "flag": "🟡", "frais": "2%"},
+    # ── Carte bancaire (internationale) ───────────────────
+    "card":               {"path": "/softpay/card",              "type": "card",     "currency": "XOF", "pays": "ALL",   "label": "Carte bancaire",    "flag": "💳", "frais": "3%"},
 }
 
-OPERATOR_META = [
-    {"id": "wave_ci",         "label": "Wave",            "flag": "🌊", "pays": "CI/SN", "frais": "1%"},
-    {"id": "orange_money_ci", "label": "Orange Money CI", "flag": "🟠", "pays": "CI",    "frais": "2%"},
-    {"id": "orange_money_sn", "label": "Orange Money SN", "flag": "🟠", "pays": "SN",    "frais": "2%"},
-    {"id": "orange_money_bf", "label": "Orange Money BF", "flag": "🟠", "pays": "BF",    "frais": "2%"},
-    {"id": "mtn_ci",          "label": "MTN MoMo",        "flag": "🟡", "pays": "CI",    "frais": "2%"},
-    {"id": "moov_ci",         "label": "Moov Money",      "flag": "🔵", "pays": "CI",    "frais": "2%"},
-    {"id": "airtel_tg",       "label": "Airtel Money",    "flag": "🔴", "pays": "TG",    "frais": "2%"},
-]
+# ── Regroupement par pays (pour le frontend) ──────────────────
+OPERATORS_BY_COUNTRY = {
+    "CI": ["wave-ci", "orange-money-ci", "mtn-ci", "moov-ci", "djamo-ci"],
+    "SN": ["wave-senegal", "orange-money-senegal", "free-money-senegal", "expresso-sn", "wizall-senegal", "djamo-sn"],
+    "BF": ["orange-money-burkina", "moov-burkina-faso"],
+    "ML": ["orange-money-mali", "moov-ml"],
+    "TG": ["t-money-togo", "moov-togo"],
+    "BJ": ["mtn-benin", "moov-benin"],
+    "CM": ["mtn-cameroun"],
+    "ALL": ["card"],
+}
 
 
-# ── Schémas ───────────────────────────────────────────────────
+# ── Schéma de requête ─────────────────────────────────────────
 
 class MobilePayRequest(BaseModel):
     user_id:       str
     plan:          str           # starter | pro | expert | expert_premium
-    operator:      str           # wave_ci | orange_money_ci | mtn_ci | ...
-    phone:         str           # ex: "0700000000"
+    operator:      str           # ex: "wave-ci", "orange-money-ci", "mtn-cameroun"...
+    phone:         Optional[str] = None   # obligatoire sauf pour wave et card
     customer_name: Optional[str] = "Client Afrika Markets"
+    customer_email: Optional[str] = None
 
 
 # ── Initier un paiement ───────────────────────────────────────
@@ -81,27 +124,37 @@ class MobilePayRequest(BaseModel):
 @router.post("/pay")
 async def initiate_payment(req: MobilePayRequest, db: AsyncSession = Depends(get_db)):
     """
-    Initie un paiement Mobile Money via PayDunya.
-    - Wave CI : retourne redirect_url (redirection navigateur)
-    - Orange / MTN / Moov / Airtel : retourne payment_token ou ussd_code
+    Initie un paiement via PayDunya.
+
+    Flux selon le type d'opérateur :
+    - wave       → retourne redirect_url (redirection navigateur/app)
+    - orange_ci  → champ spécial, retourne payment_token
+    - phone      → customer_phone standard, retourne payment_token / ussd_code
+    - card       → retourne redirect_url vers page de paiement CB
     """
     plan_info = PLANS_XOF.get(req.plan)
     if not plan_info:
-        raise HTTPException(400, f"Plan invalide : {req.plan}. Disponibles : {list(PLANS_XOF)}")
+        raise HTTPException(400, f"Plan invalide : {req.plan}. Options : {list(PLANS_XOF)}")
 
-    operator_path = OPERATORS.get(req.operator)
-    if not operator_path:
-        raise HTTPException(400, f"Opérateur non supporté : {req.operator}. Disponibles : {list(OPERATORS)}")
+    op = OPERATORS.get(req.operator)
+    if not op:
+        raise HTTPException(400, f"Opérateur non supporté : {req.operator}. Options : {list(OPERATORS)}")
 
-    ref      = f"AM-{req.user_id[:8].upper()}-{req.plan.upper()}-{uuid.uuid4().hex[:6].upper()}"
-    callback = f"{API_BASE_URL}/api/v1/paydunya/webhook"
-    amount   = plan_info["xof"]
-    desc     = f"Afrika Markets Intelligence — {plan_info['label']}"
+    # Numéro de téléphone requis sauf pour wave et card
+    if op["type"] not in ("wave", "card") and not req.phone:
+        raise HTTPException(400, f"Le champ 'phone' est obligatoire pour l'opérateur {req.operator}")
 
-    if req.operator == "wave_ci":
+    currency  = op["currency"]                        # XOF ou XAF
+    amount    = plan_info["xaf"] if currency == "XAF" else plan_info["xof"]
+    ref       = f"AM-{req.user_id[:8].upper()}-{req.plan.upper()}-{uuid.uuid4().hex[:6].upper()}"
+    callback  = f"{API_BASE_URL}/api/v1/paydunya/webhook"
+    desc      = f"Afrika Markets Intelligence — {plan_info['label']}"
+
+    # ── Construction du payload selon le type ────────────
+    if op["type"] == "wave":
         payload = {
             "amount":        amount,
-            "currency":      "XOF",
+            "currency":      currency,
             "description":   desc,
             "client_ref":    ref,
             "callback_url":  callback,
@@ -109,15 +162,31 @@ async def initiate_payment(req: MobilePayRequest, db: AsyncSession = Depends(get
             "cancel_url":    f"{FRONTEND_URL}?payment=cancelled",
             "customer_name": req.customer_name,
         }
-    elif req.operator == "orange_money_ci":
+
+    elif op["type"] == "orange_ci":
         payload = {
             "orange_money_ci_customer_number": req.phone,
-            "amount":       amount,
-            "description":  desc,
-            "client_ref":   ref,
-            "callback_url": callback,
+            "amount":        amount,
+            "description":   desc,
+            "client_ref":    ref,
+            "callback_url":  callback,
         }
-    else:
+
+    elif op["type"] == "card":
+        payload = {
+            "amount":        amount,
+            "currency":      currency,
+            "description":   desc,
+            "client_ref":    ref,
+            "callback_url":  callback,
+            "return_url":    f"{FRONTEND_URL}?payment=success&ref={ref}",
+            "cancel_url":    f"{FRONTEND_URL}?payment=cancelled",
+            "customer_name": req.customer_name,
+        }
+        if req.customer_email:
+            payload["customer_email"] = req.customer_email
+
+    else:  # type == "phone" — tous les autres opérateurs
         payload = {
             "customer_phone": req.phone,
             "amount":         amount,
@@ -126,23 +195,29 @@ async def initiate_payment(req: MobilePayRequest, db: AsyncSession = Depends(get
             "callback_url":   callback,
         }
 
+    # ── Appel API PayDunya ───────────────────────────────
     try:
         async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.post(f"{BASE_URL}{operator_path}", json=payload, headers=HEADERS)
+            resp = await client.post(
+                f"{BASE_URL}{op['path']}",
+                json=payload,
+                headers=_headers(),
+            )
         data = resp.json()
     except Exception as exc:
         logger.error(f"[PAYDUNYA] Erreur réseau : {exc}")
         raise HTTPException(502, "PayDunya inaccessible")
 
     if not data.get("success"):
-        logger.warning(f"[PAYDUNYA] Échec : {data}")
+        logger.warning(f"[PAYDUNYA] Échec initiation {req.operator} : {data}")
         raise HTTPException(400, data.get("message", "Erreur PayDunya"))
 
+    # ── Enregistrement en DB ─────────────────────────────
     db.add(Payment(
         id=str(uuid.uuid4()),
         user_id=req.user_id,
         amount=amount,
-        currency="XOF",
+        currency=currency,
         method=req.operator,
         status="pending",
         provider_ref=ref,
@@ -150,18 +225,21 @@ async def initiate_payment(req: MobilePayRequest, db: AsyncSession = Depends(get
     ))
     await db.commit()
 
-    logger.info(f"[PAYDUNYA] {req.operator} | {amount} XOF | ref={ref}")
+    logger.info(f"[PAYDUNYA] {req.operator} | {amount} {currency} | ref={ref}")
 
     return {
         "success":       True,
         "ref":           ref,
         "operator":      req.operator,
-        "amount_xof":    amount,
+        "operator_label": op["label"],
+        "amount":        amount,
+        "currency":      currency,
         "amount_usd":    plan_info["usd"],
         "plan":          plan_info["label"],
-        "redirect_url":  data.get("url") or data.get("redirect_url"),   # Wave
-        "payment_token": data.get("payment_token"),                       # Orange/MTN
-        "ussd_code":     data.get("ussd_code"),                           # MTN
+        # Wave & Card → redirect ; Orange/MTN/Moov → token/USSD
+        "redirect_url":  data.get("url") or data.get("redirect_url"),
+        "payment_token": data.get("payment_token"),
+        "ussd_code":     data.get("ussd_code"),
         "message":       data.get("message", ""),
     }
 
@@ -175,28 +253,31 @@ async def check_status(ref: str):
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(
                 f"{BASE_URL}/checkout-invoice/confirm/{ref}",
-                headers=HEADERS,
+                headers=_headers(),
             )
         data   = resp.json()
         status = data.get("status", "unknown")
         return {
-            "ref":    ref,
-            "status": status,
-            "paid":   status == "completed",
-            "amount": data.get("receipt", {}).get("total_amount"),
-            "method": data.get("receipt", {}).get("payment_method"),
+            "ref":      ref,
+            "status":   status,
+            "paid":     status == "completed",
+            "amount":   data.get("receipt", {}).get("total_amount"),
+            "currency": data.get("receipt", {}).get("currency"),
+            "method":   data.get("receipt", {}).get("payment_method"),
         }
     except Exception as exc:
         raise HTTPException(502, str(exc))
 
 
-# ── Webhook PayDunya ──────────────────────────────────────────
+# ── IPN / Webhook PayDunya ────────────────────────────────────
 
 @router.post("/webhook")
 async def paydunya_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     """
-    Webhook PayDunya — active la licence après paiement confirmé.
-    PayDunya POST ce endpoint avec le statut de la transaction.
+    IPN PayDunya (Instant Payment Notification).
+    PayDunya POSTe ce endpoint après confirmation du paiement.
+    Déclarez cette URL dans le dashboard PayDunya → votre AppDunya → IPN URL :
+        https://votre-api.com/api/v1/paydunya/webhook
     """
     try:
         payload = await request.json()
@@ -204,9 +285,10 @@ async def paydunya_webhook(request: Request, db: AsyncSession = Depends(get_db))
         raise HTTPException(400, "Payload invalide")
 
     status = payload.get("status", "")
-    ref    = (payload.get("custom_data") or {}).get("client_ref") or payload.get("client_ref", "")
+    # PayDunya envoie client_ref dans custom_data ou à la racine selon le flux
+    ref = (payload.get("custom_data") or {}).get("client_ref") or payload.get("client_ref", "")
 
-    logger.info(f"[WEBHOOK] PayDunya status={status} ref={ref}")
+    logger.info(f"[IPN] PayDunya status={status} ref={ref}")
 
     if status == "completed" and ref:
         result  = await db.execute(select(Payment).where(Payment.provider_ref == ref))
@@ -216,24 +298,47 @@ async def paydunya_webhook(request: Request, db: AsyncSession = Depends(get_db))
             payment.status = "success"
             await generate_licence(user_id=payment.user_id, plan=payment.plan, db=db)
             await db.commit()
-            logger.info(f"[WEBHOOK] Licence activée — user={payment.user_id} plan={payment.plan}")
+            logger.info(f"[IPN] Licence activée — user={payment.user_id} plan={payment.plan}")
 
     return {"received": True}
 
 
-# ── Opérateurs & plans disponibles ───────────────────────────
+# ── Catalogue opérateurs & plans (pour le frontend) ──────────
 
 @router.get("/operators")
 async def list_operators():
-    """Liste des opérateurs Mobile Money et prix des plans en XOF."""
+    """
+    Retourne tous les opérateurs PayDunya disponibles, groupés par pays,
+    avec les prix des plans en XOF/XAF/USD.
+    """
+    operators_list = [
+        {
+            "id":      op_id,
+            "label":   op["label"],
+            "flag":    op["flag"],
+            "pays":    op["pays"],
+            "frais":   op["frais"],
+            "currency": op["currency"],
+            "type":    op["type"],
+        }
+        for op_id, op in OPERATORS.items()
+    ]
+
     return {
-        "operators": OPERATOR_META,
+        "operators":          operators_list,
+        "operators_by_country": OPERATORS_BY_COUNTRY,
         "plans": {
-            k: {"xof": v["xof"], "usd": v["usd"], "label": v["label"]}
+            k: {
+                "xof":   v["xof"],
+                "xaf":   v["xaf"],
+                "usd":   v["usd"],
+                "label": v["label"],
+            }
             for k, v in PLANS_XOF.items()
         },
         "note": (
             "Clients diaspora (Canada/France/USA) → Stripe (carte bancaire). "
-            "Clients Afrique (CI/SN/BF/TG) → PayDunya Mobile Money."
+            "Clients Afrique → PayDunya Mobile Money selon pays. "
+            "Cameroun utilise XAF (taux identique à XOF vs EUR)."
         ),
     }
