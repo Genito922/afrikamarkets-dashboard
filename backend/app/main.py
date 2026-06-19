@@ -7,14 +7,11 @@ from contextlib import asynccontextmanager
 import os
 
 from backend.app.core.database import init_db
-from backend.app.routers import execution,
-     auth, licences, payments
-from backend.app.routers import execution,
-     market, analysis, intel
-from backend.app.routers import execution,
-     african_markets
-from backend.app.routers import execution,
-     performance
+from backend.app.routers import (
+    execution, auth, licences, payments, paydunya,
+    market, analysis, intel,
+    african_markets, performance,
+)
 
 
 @asynccontextmanager
@@ -59,6 +56,7 @@ app.include_router(intel.router)
 app.include_router(african_markets.router)
 app.include_router(performance.router)
 app.include_router(execution.router, prefix="/api/v1")
+app.include_router(paydunya.router, prefix="/api/v1")
 
 
 
