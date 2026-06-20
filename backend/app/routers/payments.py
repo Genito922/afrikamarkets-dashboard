@@ -9,7 +9,7 @@ from backend.app.core.exchange_rates import get_rates, convert, get_cache_info
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://afrikamarkets-dashboard.streamlit.app")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://sentinel-lccafrika.space")
 
 # ── Prix des plans ────────────────────────────────────────────
 # XOF = UEMOA (CI/SN/BF/ML/TG/BJ) — XAF = CEMAC (CM)

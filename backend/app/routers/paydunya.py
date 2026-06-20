@@ -33,7 +33,7 @@ logger = logging.getLogger("paydunya")
 PD_MASTER_KEY  = os.getenv("PAYDUNYA_MASTER_KEY", "")
 PD_PRIVATE_KEY = os.getenv("PAYDUNYA_PRIVATE_KEY", "")
 PD_TOKEN       = os.getenv("PAYDUNYA_TOKEN", "")
-FRONTEND_URL   = os.getenv("FRONTEND_URL", "https://afrikamarkets-dashboard.streamlit.app")
+FRONTEND_URL   = os.getenv("FRONTEND_URL", "https://sentinel-lccafrika.space")
 API_BASE_URL   = os.getenv("API_BASE_URL", "")
 
 BASE_URL = "https://app.paydunya.com/api/v1"
