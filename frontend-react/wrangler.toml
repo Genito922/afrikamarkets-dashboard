@@ -1,0 +1,5 @@
+name = "afrikamarkets"
+compatibility_date = "2026-01-01"
+
+[site]
+bucket = "./dist"
