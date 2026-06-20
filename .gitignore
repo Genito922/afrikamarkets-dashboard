@@ -6,3 +6,9 @@ brvm_analyzer.db
 site/
 .streamlit/secrets.toml
 .vercel
+
+# Sous-repos — ne pas tracker comme submodules
+afrikamarkets-site/
+brvm-trading/
+brvm_venv/
+lcc_venv/
