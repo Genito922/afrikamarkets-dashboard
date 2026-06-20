@@ -12,3 +12,9 @@ afrikamarkets-site/
 brvm-trading/
 brvm_venv/
 lcc_venv/
+
+# Sous-repos embarqués — ne pas tracker
+afrikamarkets-site/
+brvm-trading/
+brvm_venv/
+backtest/
