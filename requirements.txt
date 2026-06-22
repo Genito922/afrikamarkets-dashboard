@@ -1,1 +1,3 @@
--r backend/requirements.txt
+# Backend dependencies are in backend/requirements.txt
+# Frontend is in frontend-react/package.json
+# This file is intentionally minimal for Cloudflare Pages detection

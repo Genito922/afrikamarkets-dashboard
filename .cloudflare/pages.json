@@ -1,0 +1,7 @@
+{
+  "build": {
+    "rootDir": "frontend-react",
+    "buildCommand": "npm install && npm run build",
+    "destDir": "dist"
+  }
+}
