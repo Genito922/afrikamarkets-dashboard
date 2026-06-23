@@ -34,10 +34,13 @@ app = FastAPI(
 )
 
 # CORS — Streamlit Cloud + localhost dev
-ALLOWED_ORIGINS = os.getenv(
-    "ALLOWED_ORIGINS",
-    "https://sentinel-lccafrika.space,https://afrika-markets.streamlit.app,http://localhost:8501,http://localhost:3000",
-).split(",")
+ALLOWED_ORIGINS = [
+    "https://sentinel-lccafrika.space",
+    "https://www.sentinel-lccafrika.space",
+    "https://afrikamarkets-dashboard.pages.dev",
+    "http://localhost:3000",
+    "http://localhost:5173",
+]
 
 app.add_middleware(
     CORSMiddleware,
