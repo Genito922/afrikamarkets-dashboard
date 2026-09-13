@@ -10,7 +10,7 @@ from backend.app.core.database import init_db
 from backend.app.routers import (
     execution, auth, licences, payments, paydunya,
     market, analysis, intel,
-    african_markets, performance,
+    african_markets, performance, subscriptions,
 )
 
 
@@ -53,6 +53,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(licences.router)
 app.include_router(payments.router)
+app.include_router(subscriptions.router)
 app.include_router(market.router)
 app.include_router(analysis.router)
 app.include_router(intel.router)

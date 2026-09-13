@@ -18,6 +18,7 @@ def start_scheduler() -> None:
     from backend.app.pipeline.jobs import (
         job_scrape_market, job_prefetch_international,
         job_warroom, job_seed_history, job_sync_publications,
+        job_process_subscriptions,
     )
 
     # ── BRVM : toutes les 15 min (lun-ven 09h-17h UTC) ───────
@@ -98,9 +99,19 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── Subscription lifecycle : chaque nuit 00h05 UTC ──────────
+    scheduler.add_job(
+        job_process_subscriptions,
+        trigger=CronTrigger(hour="0", minute="5", timezone="UTC"),
+        id="process_subscriptions_nightly",
+        name="Subscription Lifecycle (nightly 00h05)",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
     scheduler.start()
     logger.info(
-        "[Scheduler] Démarré — BRVM 15min · Intl 6h · WarRoom lundi · SeedHistory boot+30s · Publications 4h"
+        "[Scheduler] Démarré — BRVM 15min · Intl 6h · WarRoom lundi · SeedHistory boot+30s · Publications 4h · SubLifecycle 00h05"
     )
 
 

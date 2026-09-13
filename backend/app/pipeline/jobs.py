@@ -15,6 +15,7 @@ from backend.app.core.database import AsyncSessionLocal
 from backend.app.models.market_models import (
     BrvmAction, BrvmIndex, BrvmMarketSummary, IntlMarketCache,
 )
+from backend.app.models.models import Licence, User, PlanEnum, StatusEnum
 from backend.app.pipeline.scraper import fetch_actions, fetch_indices, fetch_marche, fetch_actions_day
 
 logger = logging.getLogger(__name__)
@@ -432,3 +433,84 @@ async def job_warroom() -> None:
     except Exception as exc:
         import traceback
         logger.error("[WarRoom] ✗ %s: %s\n%s", type(exc).__name__, exc, traceback.format_exc())
+
+
+# ── Subscription lifecycle — job nuit ─────────────────────────
+
+async def job_process_subscriptions() -> None:
+    """
+    Exécuté chaque nuit à 00h05 UTC.
+    Traite les licences expirées et applique les changements programmés :
+    - cancel_at_period_end=True  → passe l'utilisateur en INACTIVE
+    - pending_plan non nul       → applique le downgrade + crée nouvelle licence
+    - expiration naturelle       → passe l'utilisateur en INACTIVE
+    """
+    from backend.app.core.security import generate_licence_token
+    from datetime import timedelta
+    import uuid as _uuid
+
+    PLAN_DURATION_DAYS = 30
+
+    now = datetime.utcnow()
+    cancelled = downgraded = expired = 0
+
+    try:
+        async with AsyncSessionLocal() as session:
+            # Licences actives dont la période est expirée
+            res = await session.execute(
+                select(Licence).where(
+                    Licence.status == StatusEnum.ACTIVE,
+                    Licence.expires_at < now,
+                )
+            )
+            expired_licences = res.scalars().all()
+
+            for lic in expired_licences:
+                lic.status = StatusEnum.INACTIVE
+
+                res_u = await session.execute(select(User).where(User.id == lic.user_id))
+                user  = res_u.scalar_one_or_none()
+                if not user:
+                    continue
+
+                if user.cancel_at_period_end:
+                    # Annulation arrivée à terme
+                    user.status              = StatusEnum.INACTIVE
+                    user.cancel_at_period_end = False
+                    cancelled += 1
+                    logger.info(f"[SubJob] ANNULATION user={user.id} plan={user.plan.value}")
+
+                elif user.pending_plan:
+                    # Downgrade arrivé à terme : crée nouvelle licence au plan inférieur
+                    new_plan = user.pending_plan
+                    new_lic  = Licence(
+                        id=str(_uuid.uuid4()),
+                        user_id=user.id,
+                        token=generate_licence_token(),
+                        plan=new_plan,
+                        status=StatusEnum.ACTIVE,
+                        billing_period_start=now,
+                        expires_at=now + timedelta(days=PLAN_DURATION_DAYS),
+                    )
+                    session.add(new_lic)
+                    user.plan         = new_plan
+                    user.status       = StatusEnum.ACTIVE
+                    user.pending_plan = None
+                    downgraded += 1
+                    logger.info(f"[SubJob] DOWNGRADE applique user={user.id} -> {new_plan.value}")
+
+                else:
+                    # Expiration naturelle (pas de renouvellement reçu)
+                    user.status = StatusEnum.INACTIVE
+                    expired += 1
+                    logger.info(f"[SubJob] EXPIRATION user={user.id} plan={user.plan.value}")
+
+            await session.commit()
+
+        logger.info(
+            f"[SubJob] Traitement termine — annules={cancelled} downgrades={downgraded} expires={expired}"
+        )
+
+    except Exception as exc:
+        import traceback
+        logger.error("[SubJob] ✗ %s: %s\n%s", type(exc).__name__, exc, traceback.format_exc())

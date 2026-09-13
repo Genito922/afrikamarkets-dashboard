@@ -42,6 +42,9 @@ class User(Base):
     status          = Column(Enum(StatusEnum), default=StatusEnum.TRIAL)
     is_admin        = Column(Boolean, default=False)
     trial_ends_at   = Column(DateTime)
+    # ── Subscription lifecycle ────────────────────────────────
+    cancel_at_period_end = Column(Boolean, default=False)   # annulation programmée fin de période
+    pending_plan         = Column(Enum(PlanEnum), nullable=True)  # downgrade programmé fin de période
     created_at      = Column(DateTime, server_default=func.now())
     updated_at      = Column(DateTime, onupdate=func.now())
 
@@ -49,13 +52,14 @@ class User(Base):
 class Licence(Base):
     __tablename__ = "licences"
 
-    id         = Column(String, primary_key=True, default=gen_uuid)
-    user_id    = Column(String, nullable=False, index=True)
-    token      = Column(String, unique=True, nullable=False)
-    plan       = Column(Enum(PlanEnum))
-    status     = Column(Enum(StatusEnum), default=StatusEnum.ACTIVE)
-    expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, server_default=func.now())
+    id                   = Column(String, primary_key=True, default=gen_uuid)
+    user_id              = Column(String, nullable=False, index=True)
+    token                = Column(String, unique=True, nullable=False)
+    plan                 = Column(Enum(PlanEnum))
+    status               = Column(Enum(StatusEnum), default=StatusEnum.ACTIVE)
+    billing_period_start = Column(DateTime, nullable=True)  # début de la période facturée
+    expires_at           = Column(DateTime, nullable=False)
+    created_at           = Column(DateTime, server_default=func.now())
 
 
 class Payment(Base):
