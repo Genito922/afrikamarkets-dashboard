@@ -13,6 +13,7 @@ Opérateurs supportés (source : https://developers.paydunya.com) :
 """
 import os
 import uuid
+import secrets
 import logging
 import httpx
 
@@ -146,7 +147,7 @@ async def initiate_payment(req: MobilePayRequest, db: AsyncSession = Depends(get
 
     currency  = op["currency"]                        # XOF ou XAF
     amount    = plan_info["xaf"] if currency == "XAF" else plan_info["xof"]
-    ref       = f"AM-{req.user_id[:8].upper()}-{req.plan.upper()}-{uuid.uuid4().hex[:6].upper()}"
+    ref       = f"AM-{req.user_id[:8].upper()}-{req.plan.upper()}-{secrets.token_hex(8).upper()}"
     callback  = f"{API_BASE_URL}/api/v1/paydunya/webhook"
     desc      = f"Afrika Markets Intelligence — {plan_info['label']}"
 
@@ -278,19 +279,39 @@ async def paydunya_webhook(request: Request, db: AsyncSession = Depends(get_db))
     PayDunya POSTe ce endpoint après confirmation du paiement.
     Déclarez cette URL dans le dashboard PayDunya → votre AppDunya → IPN URL :
         https://votre-api.com/api/v1/paydunya/webhook
+
+    Sécurité : on ne fait jamais confiance au statut du payload IPN.
+    On re-vérifie systématiquement via GET /checkout-invoice/confirm/{ref}
+    avant d'activer une licence (pattern recommandé par PayDunya).
     """
     try:
         payload = await request.json()
     except Exception:
         raise HTTPException(400, "Payload invalide")
 
-    status = payload.get("status", "")
     # PayDunya envoie client_ref dans custom_data ou à la racine selon le flux
     ref = (payload.get("custom_data") or {}).get("client_ref") or payload.get("client_ref", "")
 
-    logger.info(f"[IPN] PayDunya status={status} ref={ref}")
+    if not ref:
+        logger.warning("[IPN] Webhook sans ref — ignoré")
+        return {"received": True}
 
-    if status == "completed" and ref:
+    # Re-vérification autoritaire via l'API PayDunya (ne pas faire confiance au payload)
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"{BASE_URL}/checkout-invoice/confirm/{ref}",
+                headers=_headers(),
+            )
+        confirmed = resp.json()
+    except Exception as exc:
+        logger.error(f"[IPN] Erreur re-vérification PayDunya ref={ref} : {exc}")
+        raise HTTPException(502, "Impossible de vérifier le paiement auprès de PayDunya")
+
+    confirmed_status = confirmed.get("status", "")
+    logger.info(f"[IPN] Re-vérification ref={ref} → status={confirmed_status}")
+
+    if confirmed_status == "completed":
         result  = await db.execute(select(Payment).where(Payment.provider_ref == ref))
         payment = result.scalar_one_or_none()
 
@@ -299,6 +320,8 @@ async def paydunya_webhook(request: Request, db: AsyncSession = Depends(get_db))
             await generate_licence(user_id=payment.user_id, plan=payment.plan, db=db)
             await db.commit()
             logger.info(f"[IPN] Licence activée — user={payment.user_id} plan={payment.plan}")
+        elif payment and payment.status == "success":
+            logger.info(f"[IPN] Webhook dupliqué ignoré ref={ref} (déjà traité)")
 
     return {"received": True}
 
