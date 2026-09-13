@@ -91,24 +91,25 @@ async def seed_initial_users():
     from datetime import datetime, timedelta
 
     async with AsyncSessionLocal() as s:
+        # (email, password, full_name, country, is_admin, plan, trial_ends_at)
         TESTERS = [
-            ("testeur1@afrikamarkets.com", "Test@Afrika1",  "Testeur Un",    "CI", False),
-            ("testeur2@afrikamarkets.com", "Test@Afrika2",  "Testeur Deux",  "SN", False),
-            ("testeur3@afrikamarkets.com", "Test@Afrika3",  "Testeur Trois", "CA", False),
-            ("testeur4@afrikamarkets.com", "Test@Afrika4",  "Testeur Quatre","FR", False),
-            ("testeur5@afrikamarkets.com", "Test@Afrika5",  "Testeur Cinq",  "BF", False),
-            ("ndoubajeanclaude@outlook.com", "Afrika@Admin2024!", "Jean-Claude N'Douba", "CI", True),
+            ("testeur1@afrikamarkets.com",      "Test@Afrika1",      "Testeur Un",           "CI", False, PlanEnum.EXPERT,         datetime.utcnow() + timedelta(days=365)),
+            ("testeur2@afrikamarkets.com",      "Test@Afrika2",      "Testeur Deux",         "SN", False, PlanEnum.EXPERT,         datetime.utcnow() + timedelta(days=365)),
+            ("testeur3@afrikamarkets.com",      "Test@Afrika3",      "Testeur Trois",        "CA", False, PlanEnum.EXPERT,         datetime.utcnow() + timedelta(days=365)),
+            ("testeur4@afrikamarkets.com",      "Test@Afrika4",      "Testeur Quatre",       "FR", False, PlanEnum.EXPERT,         datetime.utcnow() + timedelta(days=365)),
+            ("testeur5@afrikamarkets.com",      "Test@Afrika5",      "Testeur Cinq",         "BF", False, PlanEnum.EXPERT,         datetime.utcnow() + timedelta(days=365)),
+            ("ndoubajeanclaude@outlook.com",    "Afrika@Admin2024!", "Jean-Claude N'Douba",  "CI", True,  PlanEnum.EXPERT_PREMIUM, datetime(2099, 12, 31)),
         ]
         created = updated = 0
-        for email, pwd, name, country, is_admin in TESTERS:
+        for email, pwd, name, country, is_admin, plan, trial_ends_at in TESTERS:
             res = await s.execute(select(User).where(User.email == email))
             u = res.scalar_one_or_none()
             if u:
                 u.hashed_password = hash_password(pwd)
-                u.plan = PlanEnum.EXPERT
-                u.status = StatusEnum.ACTIVE
-                u.is_admin = is_admin
-                u.trial_ends_at = datetime.utcnow() + timedelta(days=365)
+                u.plan            = plan
+                u.status          = StatusEnum.ACTIVE
+                u.is_admin        = is_admin
+                u.trial_ends_at   = trial_ends_at
                 updated += 1
             else:
                 s.add(User(
@@ -117,10 +118,10 @@ async def seed_initial_users():
                     hashed_password=hash_password(pwd),
                     full_name=name,
                     country=country,
-                    plan=PlanEnum.EXPERT,
+                    plan=plan,
                     status=StatusEnum.ACTIVE,
                     is_admin=is_admin,
-                    trial_ends_at=datetime.utcnow() + timedelta(days=365),
+                    trial_ends_at=trial_ends_at,
                 ))
                 created += 1
         await s.commit()
