@@ -152,6 +152,10 @@ async def initiate_payment(req: MobilePayRequest, db: AsyncSession = Depends(get
     desc      = f"Afrika Markets Intelligence — {plan_info['label']}"
 
     # ── Construction du payload selon le type ────────────
+    # URLs de retour : /checkout reçoit le résultat et lance le polling
+    return_url = f"{FRONTEND_URL}/checkout?payment=success&ref={ref}&plan={req.plan}"
+    cancel_url = f"{FRONTEND_URL}/checkout?payment=cancelled&plan={req.plan}"
+
     if op["type"] == "wave":
         payload = {
             "amount":        amount,
@@ -159,8 +163,8 @@ async def initiate_payment(req: MobilePayRequest, db: AsyncSession = Depends(get
             "description":   desc,
             "client_ref":    ref,
             "callback_url":  callback,
-            "return_url":    f"{FRONTEND_URL}?payment=success&ref={ref}",
-            "cancel_url":    f"{FRONTEND_URL}?payment=cancelled",
+            "return_url":    return_url,
+            "cancel_url":    cancel_url,
             "customer_name": req.customer_name,
         }
 
@@ -180,8 +184,8 @@ async def initiate_payment(req: MobilePayRequest, db: AsyncSession = Depends(get
             "description":   desc,
             "client_ref":    ref,
             "callback_url":  callback,
-            "return_url":    f"{FRONTEND_URL}?payment=success&ref={ref}",
-            "cancel_url":    f"{FRONTEND_URL}?payment=cancelled",
+            "return_url":    return_url,
+            "cancel_url":    cancel_url,
             "customer_name": req.customer_name,
         }
         if req.customer_email:
