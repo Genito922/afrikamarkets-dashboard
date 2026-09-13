@@ -4,10 +4,13 @@ Métriques paper trading + sous-systèmes.
 L'accès est filtré côté frontend (ProtectedRoute minPlan="expert").
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi.concurrency import run_in_threadpool
 
-router = APIRouter(prefix="/performance", tags=["Performance"])
+from backend.app.core.deps import require_plan
+from backend.app.models.models import PlanEnum
+
+router = APIRouter(prefix="/performance", tags=["Performance"], dependencies=[Depends(require_plan(PlanEnum.EXPERT))])
 
 
 @router.get("/overview")

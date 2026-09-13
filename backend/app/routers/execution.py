@@ -4,14 +4,16 @@ POST /execution/order  → route vers le bon broker
 GET  /execution/status → état des 3 brokers
 GET  /execution/symbols → mapping symboles
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 import logging
 
 from backend.app.brokers.factory import BrokerExecutionFactory
+from backend.app.core.deps import require_plan
+from backend.app.models.models import PlanEnum
 
-router  = APIRouter(prefix="/execution", tags=["execution"])
+router  = APIRouter(prefix="/execution", tags=["execution"], dependencies=[Depends(require_plan(PlanEnum.EXPERT))])
 logger  = logging.getLogger("execution")
 
 class OrderRequest(BaseModel):

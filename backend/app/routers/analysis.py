@@ -10,9 +10,11 @@ from datetime import date, timedelta
 import math
 
 from backend.app.core.database import get_db
+from backend.app.core.deps import require_plan
+from backend.app.models.models import PlanEnum
 from backend.app.models.market_models import BrvmAction
 
-router = APIRouter(prefix="/analysis", tags=["analysis"])
+router = APIRouter(prefix="/analysis", tags=["analysis"], dependencies=[Depends(require_plan(PlanEnum.STARTER))])
 
 
 # ── Calculs techniques ────────────────────────────────────────

@@ -17,11 +17,13 @@ from pydantic import BaseModel
 from typing import Optional
 
 from backend.app.core.database import get_db
+from backend.app.core.deps import require_plan
+from backend.app.models.models import PlanEnum
 from backend.app.models.market_models import IntlMarketCache
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/intel", tags=["intel"])
+router = APIRouter(prefix="/intel", tags=["intel"], dependencies=[Depends(require_plan(PlanEnum.PRO))])
 
 # ── War Room — données UEMOA ─────────────────────────────────
 

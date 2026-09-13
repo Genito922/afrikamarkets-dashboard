@@ -13,9 +13,10 @@ from sqlalchemy import select, desc
 from datetime import date, timedelta
 
 from backend.app.core.database import get_db
+from backend.app.core.deps import require_active
 from backend.app.models.market_models import BrvmAction, BrvmIndex, BrvmMarketSummary
 
-router = APIRouter(prefix="/market", tags=["market"])
+router = APIRouter(prefix="/market", tags=["market"], dependencies=[Depends(require_active)])
 
 
 @router.get("/actions")
