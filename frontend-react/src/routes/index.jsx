@@ -29,6 +29,7 @@ import MarchesInternationaux from "../pages/MarchesInternationaux";
 import CryptoAnalyse         from "../pages/CryptoAnalyse";
 import PerformanceDashboard  from "../pages/PerformanceDashboard";
 import TradingGuard          from "../pages/TradingGuard";
+import Subscription          from "../pages/Subscription";
 
 export default function AppRoutes() {
   return (
@@ -50,6 +51,9 @@ export default function AppRoutes() {
       } />
       <Route path="/profile" element={
         <ProtectedRoute><Profile /></ProtectedRoute>
+      } />
+      <Route path="/subscription" element={
+        <ProtectedRoute><Subscription /></ProtectedRoute>
       } />
 
       {/* ── Plan Starter+ ────────────────────────────────── */}

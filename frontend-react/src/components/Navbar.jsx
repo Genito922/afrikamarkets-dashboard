@@ -6,10 +6,11 @@ import LanguageSelector from "./LanguageSelector";
 import ComplianceBanner from "./ComplianceBanner";
 
 const PLAN_BADGE = {
-  free:    { label: "Free",    cls: "bg-gray-700 text-gray-300" },
-  starter: { label: "Starter", cls: "bg-blue-900/60 text-blue-300" },
-  pro:     { label: "Pro",     cls: "bg-yellow-900/60 text-yellow-300" },
-  expert:  { label: "Expert",  cls: "bg-green-900/60 text-green-300" },
+  free:           { label: "Free",           cls: "bg-gray-700 text-gray-300" },
+  starter:        { label: "Starter",        cls: "bg-blue-900/60 text-blue-300" },
+  pro:            { label: "Pro",            cls: "bg-yellow-900/60 text-yellow-300" },
+  expert:         { label: "Expert",         cls: "bg-green-900/60 text-green-300" },
+  expert_premium: { label: "Expert Premium", cls: "bg-purple-900/60 text-purple-300" },
 };
 
 const NAV_ITEMS = [
@@ -90,6 +91,12 @@ export default function Navbar() {
                   <span className={`badge text-xs px-2 py-0.5 ${badge.cls}`}>
                     {badge.label}
                   </span>
+                </Link>
+                <Link
+                  to="/subscription"
+                  className="hidden sm:inline-flex text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+                >
+                  Mon abonnement
                 </Link>
                 <button
                   onClick={handleLogout}
