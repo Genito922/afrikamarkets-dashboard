@@ -11,6 +11,7 @@ from backend.app.routers import (
     execution, auth, licences, payments, paydunya,
     market, analysis, intel,
     african_markets, performance, subscriptions,
+    credentials, bots,
 )
 
 
@@ -61,6 +62,8 @@ app.include_router(african_markets.router)
 app.include_router(performance.router)
 app.include_router(execution.router, prefix="/api/v1")
 app.include_router(paydunya.router, prefix="/api/v1")
+app.include_router(credentials.router)
+app.include_router(bots.router)
 
 
 

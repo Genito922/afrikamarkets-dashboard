@@ -68,3 +68,38 @@ class BrokerExecutionFactory:
     @staticmethod
     def list_symbols() -> dict:
         return SYMBOL_ROUTING
+
+
+def get_broker(
+    broker: str,
+    symbol: str,
+    api_key: str | None = None,
+    api_secret: str | None = None,
+    testnet: bool = True,
+    extra: dict | None = None,
+) -> BaseBrokerConnector:
+    """
+    Instancie un BrokerConnector avec les credentials fournis explicitement.
+    Utilisé par les bots multi-tenant (credentials chiffrés par user).
+    Falls back to env vars if credentials are None.
+    """
+    extra = extra or {}
+    if broker == "binance":
+        return BinanceConnector(
+            api_key    = api_key    or os.environ.get("BINANCE_API_KEY", ""),
+            api_secret = api_secret or os.environ.get("BINANCE_SECRET_KEY", ""),
+            testnet    = testnet,
+        )
+    elif broker == "exness":
+        return ExnessConnector(
+            account  = extra.get("login") or os.environ.get("EXNESS_ACCOUNT", ""),
+            password = api_secret or api_key or os.environ.get("EXNESS_PASSWORD", ""),
+            server   = extra.get("server") or os.environ.get("EXNESS_SERVER", "Exness-MT5Real"),
+        )
+    elif broker == "deriv":
+        return DerivBrokerConnector(
+            app_id = extra.get("app_id") or os.environ.get("DERIV_APP_ID", "1011"),
+            token  = api_key or os.environ.get("DERIV_API_TOKEN", ""),
+        )
+    else:
+        raise ValueError(f"Broker non supporté : {broker}")
