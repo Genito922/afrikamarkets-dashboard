@@ -8,6 +8,7 @@
  *  3. Gérer les credentials broker (accordéon)
  */
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useBots, useCredentials } from "../hooks/useBots";
 import { botsApi, credentialsApi } from "../api/bots";
@@ -634,14 +635,19 @@ export default function TradingBots() {
             <span className="text-white font-medium capitalize">{plan}</span>
           </p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          disabled={atLimit || limit === 0}
-          className="btn-primary text-sm py-2.5 px-5 disabled:opacity-40"
-          title={atLimit ? "Limite de bots atteinte" : ""}
-        >
-          + Nouveau bot
-        </button>
+        <div className="flex gap-2">
+          <Link to="/bots/dashboard" className="btn-secondary text-sm py-2.5 px-4">
+            📊 Dashboard
+          </Link>
+          <button
+            onClick={() => setShowCreate(true)}
+            disabled={atLimit || limit === 0}
+            className="btn-primary text-sm py-2.5 px-5 disabled:opacity-40"
+            title={atLimit ? "Limite de bots atteinte" : ""}
+          >
+            + Nouveau bot
+          </button>
+        </div>
       </div>
 
       {/* Toast */}

@@ -177,11 +177,61 @@ class SMACrossoverStrategy:
                 order_type="market",
             )
             pnl = (price - self._entry_price) * self.qty
+            entry = self._entry_price
             self._position = None
             self._entry_price = 0.0
             logger.info(
-                "[%s] SELL %.4f @ %.5f | PnL=%.4f | reason=%s — %s",
-                self.bot_id, self.qty, price, pnl, reason, result,
+                "[%s] SELL %.4f @ %.5f | PnL=%.4f | reason=%s",
+                self.bot_id, self.qty, price, pnl, reason,
+            )
+            await self._persist_trade(
+                side="sell",
+                entry_price=entry,
+                exit_price=price,
+                pnl=pnl,
+                reason=reason,
             )
         except Exception as exc:
             logger.error("[%s] close_long failed: %s", self.bot_id, exc)
+
+    async def _persist_trade(
+        self,
+        side: str,
+        entry_price: float,
+        exit_price: float,
+        pnl: float,
+        reason: str,
+    ):
+        """Persiste un trade fermé en DB et met à jour le bot (pnl_total, trades_count)."""
+        try:
+            from backend.app.core.database import AsyncSessionLocal
+            from sqlalchemy import select
+            from backend.app.models.models import BotTrade, TradingBot
+
+            async with AsyncSessionLocal() as db:
+                trade = BotTrade(
+                    bot_id=self.bot_id,
+                    user_id=self.user_id,
+                    symbol=self.symbol,
+                    side=side,
+                    qty=self.qty,
+                    entry_price=entry_price,
+                    exit_price=exit_price,
+                    pnl=round(pnl, 6),
+                    reason=reason,
+                )
+                db.add(trade)
+
+                result = await db.execute(
+                    select(TradingBot).where(TradingBot.id == self.bot_id)
+                )
+                bot = result.scalar_one_or_none()
+                if bot:
+                    bot.pnl_total    = round((bot.pnl_total or 0.0) + pnl, 6)
+                    bot.trades_count = (bot.trades_count or 0) + 1
+                    if self.mode.value == "paper":
+                        bot.paper_balance = round((bot.paper_balance or 0.0) + pnl, 2)
+
+                await db.commit()
+        except Exception as exc:
+            logger.error("[%s] _persist_trade failed: %s", self.bot_id, exc)

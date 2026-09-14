@@ -31,6 +31,7 @@ import PerformanceDashboard  from "../pages/PerformanceDashboard";
 import TradingGuard          from "../pages/TradingGuard";
 import Subscription          from "../pages/Subscription";
 import TradingBots           from "../pages/TradingBots";
+import BotsDashboard         from "../pages/BotsDashboard";
 
 export default function AppRoutes() {
   return (
@@ -97,6 +98,9 @@ export default function AppRoutes() {
       } />
       <Route path="/bots" element={
         <ProtectedRoute minPlan="starter"><TradingBots /></ProtectedRoute>
+      } />
+      <Route path="/bots/dashboard" element={
+        <ProtectedRoute minPlan="starter"><BotsDashboard /></ProtectedRoute>
       } />
 
       <Route path="*" element={<NotFound />} />

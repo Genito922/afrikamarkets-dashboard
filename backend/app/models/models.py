@@ -156,3 +156,20 @@ class TradingBot(Base):
     stopped_at       = Column(DateTime, nullable=True)
     created_at       = Column(DateTime, server_default=func.now())
     updated_at       = Column(DateTime, onupdate=func.now())
+
+
+class BotTrade(Base):
+    """Historique des trades exécutés par un bot (open + close en une ligne)."""
+    __tablename__ = "bot_trades"
+
+    id           = Column(String, primary_key=True, default=gen_uuid)
+    bot_id       = Column(String, nullable=False, index=True)
+    user_id      = Column(String, nullable=False, index=True)
+    symbol       = Column(String, nullable=False)
+    side         = Column(String, nullable=False)   # "buy" | "sell"
+    qty          = Column(Float, nullable=False)
+    entry_price  = Column(Float, nullable=True)
+    exit_price   = Column(Float, nullable=True)
+    pnl          = Column(Float, default=0.0)       # PnL net en USD
+    reason       = Column(String, nullable=True)    # "signal" | "stop_loss" | "take_profit"
+    created_at   = Column(DateTime, server_default=func.now())

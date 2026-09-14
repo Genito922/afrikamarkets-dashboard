@@ -12,16 +12,16 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, desc, func as sqlfunc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.database import get_db
 from backend.app.core.deps import require_plan, get_current_user
 from backend.app.models.models import (
     PlanEnum, TradingBot, TradingModeEnum, BotStatusEnum,
-    UserBrokerCredential, User,
+    UserBrokerCredential, User, BotTrade,
 )
 from backend.app.services import bot_runner
 
@@ -329,3 +329,142 @@ async def stop_bot(
     await db.commit()
     await db.refresh(bot)
     return bot
+
+
+# ── Trade history ─────────────────────────────────────────────────────────────
+
+class TradeOut(BaseModel):
+    id: str
+    bot_id: str
+    symbol: str
+    side: str
+    qty: float
+    entry_price: float | None
+    exit_price: float | None
+    pnl: float
+    reason: str | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/{bot_id}/trades", response_model=list[TradeOut])
+async def get_bot_trades(
+    bot_id: str,
+    limit: int = Query(100, ge=1, le=500),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_bot_or_404(bot_id, user.id, db)
+    result = await db.execute(
+        select(BotTrade)
+        .where(BotTrade.bot_id == bot_id, BotTrade.user_id == user.id)
+        .order_by(desc(BotTrade.created_at))
+        .limit(limit)
+    )
+    return result.scalars().all()
+
+
+# ── Fleet dashboard summary ───────────────────────────────────────────────────
+
+@router.get("/dashboard/summary")
+async def fleet_dashboard(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Agrégats fleet-level pour le dashboard bots :
+    total_pnl, running_count, total_trades, win_rate,
+    per_bot stats, equity_curve (cumul PnL par jour).
+    """
+    # Tous les bots de l'user
+    bots_res = await db.execute(
+        select(TradingBot).where(TradingBot.user_id == user.id)
+    )
+    bots = bots_res.scalars().all()
+
+    if not bots:
+        return {
+            "total_pnl": 0.0,
+            "running_count": 0,
+            "total_trades": 0,
+            "win_rate": None,
+            "per_bot": [],
+            "equity_curve": [],
+            "recent_trades": [],
+        }
+
+    bot_ids = [b.id for b in bots]
+
+    # Tous les trades
+    trades_res = await db.execute(
+        select(BotTrade)
+        .where(BotTrade.user_id == user.id)
+        .order_by(BotTrade.created_at)
+    )
+    all_trades = trades_res.scalars().all()
+
+    total_trades = len(all_trades)
+    winning      = sum(1 for t in all_trades if t.pnl > 0)
+    win_rate     = round(winning / total_trades * 100, 1) if total_trades else None
+    total_pnl    = round(sum(t.pnl for t in all_trades), 4)
+    running_count = sum(1 for b in bots if b.status == BotStatusEnum.RUNNING)
+
+    # Equity curve : cumul PnL chronologique (tous bots confondus)
+    cumul = 0.0
+    equity_curve = []
+    for t in all_trades:
+        cumul = round(cumul + t.pnl, 4)
+        equity_curve.append({
+            "date":  t.created_at.strftime("%Y-%m-%d %H:%M"),
+            "pnl":   round(t.pnl, 4),
+            "cumul": cumul,
+        })
+
+    # Per-bot summary
+    per_bot = []
+    for b in bots:
+        bot_trades = [t for t in all_trades if t.bot_id == b.id]
+        bt_total   = len(bot_trades)
+        bt_win     = sum(1 for t in bot_trades if t.pnl > 0)
+        per_bot.append({
+            "id":           b.id,
+            "name":         b.name,
+            "broker":       b.broker,
+            "symbol":       b.symbol,
+            "mode":         b.mode.value,
+            "status":       b.status.value,
+            "pnl_total":    round(b.pnl_total or 0.0, 4),
+            "trades_count": b.trades_count or 0,
+            "win_rate":     round(bt_win / bt_total * 100, 1) if bt_total else None,
+            "paper_balance": b.paper_balance,
+            "started_at":   b.started_at.isoformat() if b.started_at else None,
+        })
+
+    # 20 derniers trades (toutes stratégies)
+    recent_trades = [
+        {
+            "id":          t.id,
+            "bot_id":      t.bot_id,
+            "symbol":      t.symbol,
+            "side":        t.side,
+            "qty":         t.qty,
+            "entry_price": t.entry_price,
+            "exit_price":  t.exit_price,
+            "pnl":         round(t.pnl, 4),
+            "reason":      t.reason,
+            "created_at":  t.created_at.isoformat(),
+        }
+        for t in list(reversed(all_trades))[:20]
+    ]
+
+    return {
+        "total_pnl":    total_pnl,
+        "running_count": running_count,
+        "total_trades": total_trades,
+        "win_rate":     win_rate,
+        "per_bot":      per_bot,
+        "equity_curve": equity_curve,
+        "recent_trades": recent_trades,
+    }
