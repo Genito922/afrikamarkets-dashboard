@@ -4,7 +4,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-DOMAIN="api.YOURDOMAIN.com"         # <- remplacer par votre sous-domaine
+DOMAIN="api.sentinel-lccafrika.space"         # <- remplacer par votre sous-domaine
 EMAIL="your@email.com"              # <- remplacer par votre email Let's Encrypt
 APP_DIR="/opt/afrikamarkets"
 REPO="https://github.com/Genito922/afrikamarkets-dashboard.git"
