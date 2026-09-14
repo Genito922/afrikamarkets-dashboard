@@ -24,6 +24,7 @@ const NAV_ITEMS = [
   { to: "/international", labelKey: "nav_international", label: "Intl" },
   { to: "/crypto",        labelKey: "nav_crypto",        label: "Crypto" },
   { to: "/performance",   labelKey: "nav_performance",   label: "Performance" },
+  { to: "/bots",          labelKey: "nav_bots",          label: "Bots" },
   { to: "/pricing",       labelKey: "sub_title",        label: "Abonnement" },
 ];
 

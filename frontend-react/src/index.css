@@ -46,4 +46,11 @@
   .badge {
     @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
   }
+
+  .input-dark {
+    @apply w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-white
+           placeholder-gray-600 text-sm
+           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500
+           transition-colors;
+  }
 }

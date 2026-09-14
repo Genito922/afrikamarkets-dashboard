@@ -30,6 +30,7 @@ import CryptoAnalyse         from "../pages/CryptoAnalyse";
 import PerformanceDashboard  from "../pages/PerformanceDashboard";
 import TradingGuard          from "../pages/TradingGuard";
 import Subscription          from "../pages/Subscription";
+import TradingBots           from "../pages/TradingBots";
 
 export default function AppRoutes() {
   return (
@@ -93,6 +94,9 @@ export default function AppRoutes() {
       } />
       <Route path="/trading-guard" element={
         <ProtectedRoute minPlan="expert"><TradingGuard /></ProtectedRoute>
+      } />
+      <Route path="/bots" element={
+        <ProtectedRoute minPlan="starter"><TradingBots /></ProtectedRoute>
       } />
 
       <Route path="*" element={<NotFound />} />
