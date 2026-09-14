@@ -34,14 +34,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — Streamlit Cloud + localhost dev
-ALLOWED_ORIGINS = [
+# CORS — origines autorisées (FRONTEND_URL en prod, localhost en dev)
+_base_origins = [
     "https://sentinel-lccafrika.space",
     "https://www.sentinel-lccafrika.space",
     "https://afrikamarkets-dashboard.pages.dev",
     "http://localhost:3000",
     "http://localhost:5173",
 ]
+_extra = os.getenv("FRONTEND_URL", "")
+ALLOWED_ORIGINS = list(dict.fromkeys(
+    _base_origins + ([_extra] if _extra and _extra not in _base_origins else [])
+))
 
 app.add_middleware(
     CORSMiddleware,

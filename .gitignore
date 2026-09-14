@@ -2,6 +2,10 @@ brvm_venv/
 __pycache__/
 *.pyc
 .env
+.env.prod
+.env.local
+frontend-react/.env.local
+nginx/ssl/
 brvm_analyzer.db
 site/
 .streamlit/secrets.toml
