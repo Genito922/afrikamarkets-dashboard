@@ -37,10 +37,18 @@ SECTEUR_MAP: dict[str, str] = {
 }
 
 
-def _get(url: str) -> BeautifulSoup:
-    r = requests.get(url, headers=HEADERS, timeout=20, verify=False)
-    r.raise_for_status()
-    return BeautifulSoup(r.content, "html.parser")
+def _get(url: str, retries: int = 3) -> BeautifulSoup:
+    last_exc = None
+    for attempt in range(retries):
+        try:
+            r = requests.get(url, headers=HEADERS, timeout=45, verify=False)
+            r.raise_for_status()
+            return BeautifulSoup(r.content, "html.parser")
+        except Exception as exc:
+            last_exc = exc
+            if attempt < retries - 1:
+                import time; time.sleep(5 * (attempt + 1))
+    raise last_exc
 
 
 def _num(val: str) -> float:
