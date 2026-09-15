@@ -7,6 +7,7 @@ GET /intel/opcvm                      → liste OPCVM BRVM
 GET /intel/plans                      → description des plans tarifaires
 GET /intel/international/forex/xof    → taux EUR/XOF (fixe) + USD/XOF + CAD/XOF
 GET /intel/international/{ticker}     → OHLCV + indicateurs techniques yfinance
+GET /intel/crypto/sentiment           → Fear & Greed estimé (RSI BTC + momentum 30j)
 """
 import json
 import logging
@@ -822,4 +823,64 @@ async def get_decision_context(db: AsyncSession = Depends(get_db)):
             "Consultez un professionnel agréé avant tout investissement."
         ),
         "generated_at": str(mood_data.get("data_date", "N/A")),
+    }
+
+
+@router.get("/crypto/sentiment")
+async def get_crypto_sentiment(db: AsyncSession = Depends(get_db)):
+    """
+    Fear & Greed Index estimé — RSI BTC + momentum 30j + dominance cache.
+    Source : IntlMarketCache BTC-USD + USDT.D si disponible.
+    """
+    import statistics
+
+    def _calc_rsi(prices: list, period: int = 14) -> float:
+        if len(prices) < period + 1:
+            return 50.0
+        deltas = [prices[i] - prices[i - 1] for i in range(1, len(prices))]
+        gains  = [d for d in deltas[-period:] if d > 0]
+        losses = [-d for d in deltas[-period:] if d < 0]
+        avg_gain = statistics.mean(gains) if gains else 0.0
+        avg_loss = statistics.mean(losses) if losses else 1e-9
+        rs = avg_gain / avg_loss
+        return round(100 - 100 / (1 + rs), 2)
+
+    # 1. Lire BTC-USD depuis le cache
+    btc_row = await db.get(IntlMarketCache, "BTC-USD")
+    btc_rsi   = 50.0
+    btc_chg30 = 0.0
+    btc_dominance = None
+
+    if btc_row:
+        try:
+            btc_data = json.loads(btc_row.data_json)
+            prices   = [d["cours"] for d in (btc_data.get("data") or []) if d.get("cours")]
+            if prices:
+                btc_rsi   = _calc_rsi(prices)
+                btc_chg30 = round((prices[-1] - prices[0]) / prices[0] * 100, 2) if prices[0] else 0.0
+        except Exception:
+            pass
+
+    # 2. Fear & Greed estimé : RSI (50%) + momentum normalisé (50%)
+    momentum_norm = min(max(btc_chg30 + 50, 0), 100)
+    fg_raw = round(btc_rsi * 0.5 + momentum_norm * 0.5)
+    fg     = min(max(fg_raw, 0), 100)
+
+    if fg >= 75:
+        label, color = "Avidité Extrême", "#22c55e"
+    elif fg >= 55:
+        label, color = "Avidité",         "#86efac"
+    elif fg >= 45:
+        label, color = "Neutre",          "#facc15"
+    elif fg >= 25:
+        label, color = "Peur",            "#fb923c"
+    else:
+        label, color = "Peur Extrême",    "#ef4444"
+
+    return {
+        "fear_greed": {"value": fg, "label": label, "color": color},
+        "btc_dominance": btc_dominance,
+        "btc_rsi":   btc_rsi,
+        "btc_chg30": btc_chg30,
+        "source": "estimé (BTC RSI 14j + momentum 30j)",
     }
