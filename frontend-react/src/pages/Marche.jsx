@@ -35,7 +35,7 @@ export default function Marche() {
   const [sortAsc,  setSortAsc]  = useState(false);
 
   useEffect(() => {
-    apiGet("/market/actions")
+    apiGet("/market/actions", true)
       .then((data) => {
         setActions(data.data || []);
         setDate(data.date);

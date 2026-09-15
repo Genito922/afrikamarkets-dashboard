@@ -112,7 +112,7 @@ export default function Risques() {
 
   useEffect(() => {
     if (!hasAccess) return;
-    apiGet("/intel/warroom")
+    apiGet("/intel/warroom", true)
       .then(setData)
       .finally(() => setLoading(false));
   }, [hasAccess]);

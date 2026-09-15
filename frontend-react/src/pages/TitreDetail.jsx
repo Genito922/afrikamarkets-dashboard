@@ -54,7 +54,7 @@ export default function TitreDetail() {
   useEffect(() => {
     if (!sym) return;
     setLoading(true);
-    apiGet(`/market/actions/${sym}/history?days=${period}`)
+    apiGet(`/market/actions/${sym}/history?days=${period}`, true)
       .then(setHistory)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));

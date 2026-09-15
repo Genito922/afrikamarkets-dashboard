@@ -232,7 +232,7 @@ function AnalyseTab({ ticker, days }) {
     setLoading(true);
     setError(null);
     setResult(null);
-    apiGet(`/intel/international/${encodeURIComponent(ticker)}?days=${days}`)
+    apiGet(`/intel/international/${encodeURIComponent(ticker)}?days=${days}`, true)
       .then((r) => {
         const enriched = enrichData(r.data || []);
         setResult({ ...r, data: enriched });
@@ -616,7 +616,7 @@ function ScreenerTab({ days }) {
     setLoaded(false);
 
     const promises = ASSETS.map((a) =>
-      apiGet(`/intel/international/${encodeURIComponent(a.ticker)}?days=${days}`)
+      apiGet(`/intel/international/${encodeURIComponent(a.ticker)}?days=${days}`, true)
         .then((r) => ({
           ...a,
           cours:   r.last?.cours,
@@ -783,7 +783,7 @@ function CorrelationsTab({ days }) {
     const subset = ASSETS.slice(0, 7); // 7 actifs pour lisibilité
     Promise.allSettled(
       subset.map((a) =>
-        apiGet(`/intel/international/${encodeURIComponent(a.ticker)}?days=${days}`)
+        apiGet(`/intel/international/${encodeURIComponent(a.ticker)}?days=${days}`, true)
           .then((r) => ({ ticker: a.label, returns: computeReturns(r.data || []) }))
           .catch(() => null)
       )
@@ -900,11 +900,11 @@ function SentimentTab({ days }) {
   useEffect(() => {
     setLoading(true);
     // Tenter l'endpoint dédié, sinon construire depuis BTC
-    apiGet("/intel/crypto/sentiment")
+    apiGet("/intel/crypto/sentiment", true)
       .then(setData)
       .catch(() => {
         // Fallback : calcul depuis BTC
-        apiGet(`/intel/international/BTC-USD?days=30`)
+        apiGet(`/intel/international/BTC-USD?days=30`, true)
           .then((r) => {
             const prices = (r.data || []).map((d) => d.cours).filter(Boolean);
             const last   = prices.at(-1);

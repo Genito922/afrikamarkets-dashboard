@@ -441,7 +441,7 @@ export default function Analyse() {
   const [error,    setError]    = useState(null);
 
   useEffect(() => {
-    apiGet("/market/actions").then((d) => {
+    apiGet("/market/actions", true).then((d) => {
       const syms = (d.data || []).map((a) => ({
         value: a.symbole,
         label: `${a.symbole} — ${a.nom?.substring(0, 32)}`,
@@ -457,7 +457,7 @@ export default function Analyse() {
     if (!sym) return;
     setLoading(true);
     setError(null);
-    apiGet(`/analysis/${sym}?days=${days}`)
+    apiGet(`/analysis/${sym}?days=${days}`, true)
       .then(setAnalysis)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));

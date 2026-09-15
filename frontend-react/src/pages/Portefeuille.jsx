@@ -32,7 +32,7 @@ export default function Portefeuille() {
   const hasAccess = ["starter", "pro", "expert"].includes(plan);
 
   useEffect(() => {
-    apiGet("/market/actions")
+    apiGet("/market/actions", true)
       .then((d) => {
         const data = d.data || [];
         setActions(data);

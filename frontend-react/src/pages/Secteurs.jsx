@@ -55,7 +55,7 @@ export default function Secteurs() {
   const [error,   setError]   = useState(null);
 
   useEffect(() => {
-    apiGet("/market/sectors")
+    apiGet("/market/sectors", true)
       .then(setData)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));

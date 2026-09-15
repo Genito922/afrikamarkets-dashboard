@@ -93,9 +93,9 @@ export default function Dashboard() {
     async function load() {
       try {
         const [sum, idx, act] = await Promise.all([
-          apiGet("/market/summary"),
-          apiGet("/market/indices"),
-          apiGet("/market/actions"),
+          apiGet("/market/summary", true),
+          apiGet("/market/indices", true),
+          apiGet("/market/actions", true),
         ]);
         setSummary(sum);
         setIndices(idx);

@@ -243,7 +243,7 @@ function AfricanMarketsTab() {
 
   // Catalogue exchanges
   useEffect(() => {
-    apiGet("/african-markets/exchanges")
+    apiGet("/african-markets/exchanges", true)
       .then((r) => setExchanges(r.exchanges || []))
       .catch(() => {});
   }, []);
@@ -252,7 +252,7 @@ function AfricanMarketsTab() {
   useEffect(() => {
     if (subTab !== "ai-reco") return;
     setLoadReco(true);
-    apiGet("/african-markets/ai-reco")
+    apiGet("/african-markets/ai-reco", true)
       .then((r) => setRecos(r.recommendations || []))
       .catch((e) => setError(e?.message || "Erreur"))
       .finally(() => setLoadReco(false));
@@ -263,7 +263,7 @@ function AfricanMarketsTab() {
     if (subTab !== "sgis") return;
     setLoadSgi(true);
     setSgis([]);
-    apiGet(`/african-markets/exchanges/${selSlug}/sgis`)
+    apiGet(`/african-markets/exchanges/${selSlug}/sgis`, true)
       .then((r) => setSgis(r.sgis || []))
       .catch(() => setSgis([]))
       .finally(() => setLoadSgi(false));
@@ -679,7 +679,7 @@ export default function MarchesInternationaux() {
   // Fetch XOF rates once
   useEffect(() => {
     if (!hasAccess) return;
-    apiGet("/intel/international/forex/xof")
+    apiGet("/intel/international/forex/xof", true)
       .then(setXofRates)
       .catch(() => {});
   }, [hasAccess]);
@@ -698,7 +698,7 @@ export default function MarchesInternationaux() {
     setLoadingChart(true);
     setError(null);
     setChartResult(null);
-    apiGet(`/intel/international/${encodeURIComponent(ticker)}?days=${days}`)
+    apiGet(`/intel/international/${encodeURIComponent(ticker)}?days=${days}`, true)
       .then(setChartResult)
       .catch((e) => setError(e?.message || "Erreur de chargement"))
       .finally(() => setLoadingChart(false));
