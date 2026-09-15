@@ -37,6 +37,7 @@ class TokenResponse(BaseModel):
     plan:         str
     status:       str
     full_name:    str
+    is_admin:     bool = False
 
 
 # ── Endpoints ────────────────────────────────────────────────
@@ -73,6 +74,7 @@ async def register(req: RegisterRequest, request: Request, db: AsyncSession = De
         plan=user.plan.value,
         status=user.status.value,
         full_name=user.full_name,
+        is_admin=user.is_admin,
     )
 
 
@@ -101,6 +103,7 @@ async def login(req: LoginRequest, request: Request, db: AsyncSession = Depends(
         plan=user.plan.value,
         status=user.status.value,
         full_name=user.full_name,
+        is_admin=user.is_admin,
     )
 
 
@@ -124,6 +127,7 @@ async def me(authorization: Optional[str] = Header(None), db: AsyncSession = Dep
         "full_name":     user.full_name,
         "plan":          user.plan.value,
         "status":        user.status.value,
+        "is_admin":      user.is_admin,
         "country":       user.country,
         "trial_ends_at": user.trial_ends_at,
         "created_at":    user.created_at,

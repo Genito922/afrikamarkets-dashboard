@@ -11,13 +11,13 @@ import { useAuth } from "../context/AuthContext";
 const PLAN_ORDER = { free: 0, starter: 1, pro: 2, expert: 3, expert_premium: 4 };
 
 export default function ProtectedRoute({ children, minPlan }) {
-  const { isAuthenticated, plan } = useAuth();
+  const { isAuthenticated, plan, user } = useAuth();
 
   if (!isAuthenticated) {
     return <Navigate to="/overview" replace />;
   }
 
-  if (minPlan) {
+  if (minPlan && !user?.is_admin) {
     const userLevel = PLAN_ORDER[plan]    ?? 0;
     const reqLevel  = PLAN_ORDER[minPlan] ?? 0;
     if (userLevel < reqLevel) {

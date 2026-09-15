@@ -32,6 +32,7 @@ export default function Login() {
           full_name: data.full_name,
           plan:      data.plan,
           status:    data.status,
+          is_admin:  data.is_admin ?? false,
         });
         navigate("/dashboard");
       }
