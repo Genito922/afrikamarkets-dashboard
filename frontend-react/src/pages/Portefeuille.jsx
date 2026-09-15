@@ -19,7 +19,7 @@ const TOOLTIP_STYLE = {
 
 export default function Portefeuille() {
   const { t } = useTranslation();
-  const { plan } = useAuth();
+  const { plan, isAdmin } = useAuth();
 
   const [actions,  setActions]  = useState([]);
   const [loading,  setLoading]  = useState(true);
@@ -29,7 +29,7 @@ export default function Portefeuille() {
   const [selected,  setSelected]  = useState([]);
   const [allocs,    setAllocs]    = useState({});
 
-  const hasAccess = ["starter", "pro", "expert"].includes(plan);
+  const hasAccess = isAdmin || ["starter", "pro", "expert", "expert_premium"].includes(plan);
 
   useEffect(() => {
     apiGet("/market/actions", true)
