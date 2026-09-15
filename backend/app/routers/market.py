@@ -222,8 +222,11 @@ async def get_market_mood(db: AsyncSession = Depends(get_db)):
     Régimes : trending_up / trending_down / volatile / sideways / low_liquidity
     Score -4..+4 avec pondération dynamique selon régime détecté.
     """
-    from backend.app.pipeline.mood_engine import compute_market_mood
-    return await compute_market_mood(db)
+    try:
+        from backend.app.pipeline.mood_engine import compute_market_mood
+        return await compute_market_mood(db)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Mood engine error: {exc}")
 
 
 @router.post("/scrape")
