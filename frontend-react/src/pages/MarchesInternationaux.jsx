@@ -663,7 +663,7 @@ const PERIOD_OPTIONS = [
 
 export default function MarchesInternationaux() {
   const { t } = useTranslation();
-  const { plan } = useAuth();
+  const { plan, isAdmin } = useAuth();
 
   const [activeTab,    setActiveTab]    = useState("commodities");
   const [activeSub,    setActiveSub]    = useState("chart"); // "chart" | "impact"
@@ -674,7 +674,7 @@ export default function MarchesInternationaux() {
   const [xofRates,     setXofRates]     = useState(null);
   const [error,        setError]        = useState(null);
 
-  const hasAccess = plan === "expert";
+  const hasAccess = isAdmin || ["expert", "expert_premium"].includes(plan);
 
   // Fetch XOF rates once
   useEffect(() => {

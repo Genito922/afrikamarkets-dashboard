@@ -102,13 +102,13 @@ function CountryCard({ c, expanded, onToggle }) {
 
 export default function Risques() {
   const { t } = useTranslation();
-  const { plan } = useAuth();
+  const { plan, isAdmin } = useAuth();
   const [data,     setData]     = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [expanded, setExpanded] = useState(null);
   const [activeTab, setActiveTab] = useState("map");
 
-  const hasAccess = ["pro", "expert"].includes(plan);
+  const hasAccess = isAdmin || ["pro", "expert", "expert_premium"].includes(plan);
 
   useEffect(() => {
     if (!hasAccess) return;

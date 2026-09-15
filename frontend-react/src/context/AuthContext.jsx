@@ -30,10 +30,11 @@ export function AuthProvider({ children }) {
   }
 
   const isAuthenticated = !!token && !!user;
-  const plan = user?.plan || "free";
+  const plan    = user?.plan     || "free";
+  const isAdmin = user?.is_admin ?? false;
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated, plan, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isAuthenticated, plan, isAdmin, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

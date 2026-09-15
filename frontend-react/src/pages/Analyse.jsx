@@ -430,7 +430,7 @@ function PriceInterpretation({ last, quality }) {
 // ── Main Page ─────────────────────────────────────────────────
 
 export default function Analyse() {
-  const { plan } = useAuth();
+  const { plan, isAdmin } = useAuth();
   const [searchParams] = useSearchParams();
 
   const [symbols,  setSymbols]  = useState([]);
@@ -463,7 +463,7 @@ export default function Analyse() {
       .finally(() => setLoading(false));
   }, [sym, days]);
 
-  const hasAccess = ["starter", "pro", "expert"].includes(plan);
+  const hasAccess = isAdmin || ["starter", "pro", "expert", "expert_premium"].includes(plan);
 
   if (!hasAccess) {
     return (

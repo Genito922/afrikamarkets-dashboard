@@ -1076,13 +1076,13 @@ function SentimentTab({ days }) {
 
 // ── PAGE PRINCIPALE ───────────────────────────────────────────
 export default function CryptoAnalyse() {
-  const { plan } = useAuth();
+  const { plan, isAdmin } = useAuth();
 
   const [activeTab,    setActiveTab]    = useState("analyse");
   const [ticker,       setTicker]       = useState("BTC-USD");
   const [days,         setDays]         = useState(90);
 
-  const hasAccess = plan === "expert";
+  const hasAccess = isAdmin || ["expert", "expert_premium"].includes(plan);
 
   // ── Plan gate ────────────────────────────────────────────────
   if (!hasAccess) {
