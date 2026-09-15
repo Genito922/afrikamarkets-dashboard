@@ -285,7 +285,7 @@ export default function MarketMoodWidget({ variant = "compact" }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiGet("/market/mood")
+    apiGet("/market/mood", true)
       .then(setMood)
       .catch(() => setMood(null))
       .finally(() => setLoading(false));
