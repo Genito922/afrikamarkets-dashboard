@@ -33,6 +33,18 @@ def start_scheduler() -> None:
         misfire_grace_time=300,
     )
 
+    # ── BRVM clôture : scrape dédié 15h45 UTC (après fermeture 15h30) ──
+    scheduler.add_job(
+        job_scrape_market,
+        trigger=CronTrigger(
+            day_of_week="mon-fri", hour="15", minute="45", timezone="UTC",
+        ),
+        id="scrape_brvm_close",
+        name="BRVM Close Scraper (15h45 UTC)",
+        replace_existing=True,
+        misfire_grace_time=600,
+    )
+
     # ── Marchés internationaux : toutes les 6h ────────────────
     scheduler.add_job(
         job_prefetch_international,
